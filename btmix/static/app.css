@@ -193,3 +193,4 @@ details.sec > summary::marker { color: var(--muted); }
 .kindtag.bt { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 .kindtag.replay { background: color-mix(in srgb, var(--warn) 22%, transparent); }
 span.warn { color: var(--warn); }
+table.data td.oos, table.data th.oos { background: color-mix(in srgb, var(--warn) 7%, transparent); }

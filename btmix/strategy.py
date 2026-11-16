@@ -150,6 +150,7 @@ class BtRun:
         self.rows: list[dict] = []
         self.combos: list[tuple] = []
         self.ctx: _Ctx | None = None
+        self.split_t: int | None = None
         self.summary: dict = {}
         self.rejected: Counter = Counter()
 
@@ -162,6 +163,9 @@ class BtRun:
         self.ctx = ctx = _Ctx(base, prepared, grid)
         cfg0 = ctx.cfg0
         self.unit = cfg0.tp_sl_unit
+        # Kiểm tra ngoài mẫu: xếp hạng trên phần đầu giai đoạn, xem kết quả trên x% cuối (chống quá khớp)
+        self.split_t = int(cfg0.end_ms - (cfg0.end_ms - cfg0.start_ms) * grid.oos_pct / 100.0) \
+            if grid.oos_pct > 0 else None
         t_eval = time.time()
         log.info("Lưới %d tham số, %s tổ hợp – %s", len(grid.keys), f"{grid.total:,}",
                  "quét toàn bộ" if grid.mode == "grid" else f"tìm kiếm thông minh ({grid.max_combos:,} tổ hợp)")
@@ -220,6 +224,7 @@ class BtRun:
             "objective": grid.objective, "objective_label": OBJECTIVES[grid.objective],
             "n_combos": len(rows), "grid_total": grid.total, "grid_mode": grid.mode,
             "n_signals": n_sig,
+            "oos_pct": grid.oos_pct or 0,
             "n_symbols": len(getattr(ctx.uni, "symbols", []) or []),
             "initial_balance": cfg0.initial_balance,
             "resolution": {"tick": 0},
@@ -294,14 +299,26 @@ class BtRun:
             row.update({"h8_n": s8["n"], "h8_net": s8["net"], "h8_dd": s8["max_dd"], "h8_ret": s8["ret_dd"],
                         "h8_pf": s8["pf"]})
             row.update({"h8_" + k: v for k, v in _stability(sub, self.tz).items()})
+        rank = st
+        if self.split_t is not None:
+            is_ = quick_stats(closed, cfg.initial_balance, None, self.split_t)
+            oos = quick_stats(closed, cfg.initial_balance, self.split_t, None)
+            row.update({"is_n": is_["trades"], "is_net": is_["net_pnl"], "oos_n": oos["trades"],
+                        "oos_net": oos["net_pnl"], "oos_win_rate": oos["win_rate_pct"],
+                        "oos_dd": oos["max_drawdown"]})
+            rank = {"n": is_["trades"], "net": is_["net_pnl"], "max_dd": is_["max_drawdown"],
+                    "max_dd_pct": is_["max_drawdown_pct"], "pf": is_["profit_factor"],
+                    "win_rate": is_["win_rate_pct"], "avg": is_["expectancy_per_trade"],
+                    "top5h": is_["top5h_pnl"], "hours_pos": is_["hours_pos"]}
         # xếp hạng theo tiêu chí đã chọn (dùng cho tìm kiếm thông minh & cột điểm)
-        qs = {"trades": st["n"], "net_pnl": st["net"], "max_drawdown": st["max_dd"],
-              "max_drawdown_pct": st["max_dd_pct"], "profit_factor": st["pf"] if st["pf"] is not None else math.inf,
-              "win_rate_pct": st["win_rate"], "expectancy_per_trade": st["avg"], "top5h_pnl": st["top5h"],
-              "hours_pos": st["hours_pos"]}
+        qs = {"trades": rank["n"], "net_pnl": rank["net"], "max_drawdown": rank["max_dd"],
+              "max_drawdown_pct": rank["max_dd_pct"],
+              "profit_factor": rank["pf"] if rank["pf"] is not None else math.inf,
+              "win_rate_pct": rank["win_rate"], "expectancy_per_trade": rank["avg"], "top5h_pnl": rank["top5h"],
+              "hours_pos": rank["hours_pos"]}
         row["score"] = _f(score(qs, grid.objective))
-        row["ok"] = bool(st["n"] >= max(1, grid.min_trades) and
-                         (grid.max_dd is None or st["max_dd_pct"] <= grid.max_dd))
+        row["ok"] = bool(rank["n"] >= max(1, grid.min_trades) and
+                         (grid.max_dd is None or rank["max_dd_pct"] <= grid.max_dd))
         return row
 
     @staticmethod

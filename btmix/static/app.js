@@ -203,6 +203,7 @@ async function loadResult(id) {
     const ac = S.actual_cfg;
     RES.rows.forEach((r) => { r.isActual = r.mode === "single" && Math.abs(r.tp - ac.tp) < 1e-9 && Math.abs(r.sl - ac.sl) < 1e-9 && r.hold === ac.hold; });
   }
+  COLS = BASE_COLS.concat(RES.rows.some((r) => r.oos_net != null) ? OOS_COLS : []);
   document.querySelectorAll(".replay-only").forEach((x) => (x.hidden = isBt()));
   document.querySelectorAll(".bt-only").forEach((x) => (x.hidden = !isBt()));
   resetDates();
@@ -361,7 +362,7 @@ function stabCols(pre, cls) {
       (r) => (r[pre + "nb_net"] == null ? "" : `Net trung bình ${r.nb_cnt} ô kề trên heatmap (TP ±1 nấc, SL ±1 nấc, cùng giữ lệnh) · thấp nhất ${fmt(r[pre + "nb_min"])}`)],
   ];
 }
-const COLS = [
+const BASE_COLS = [
   ["mode", "Chế độ", "l", (r) => modeTxt(r.mode) + (r.isActual ? " ★" : "")], ["tp", "TP %", "", (r) => fmt(r.tp)],
   ["sl", "SL %", "", (r) => (r.sl ? fmt(r.sl, 1) : "–")], ["hold", "Giữ", "", (r) => holdTxt(r.hold)],
   ["n", "Lệnh", "", (r) => fmt(r.n, 0)], ["skipped", "Bỏ", "", (r) => fmt(r.skipped, 0)],
@@ -377,6 +378,17 @@ const COLS = [
   ...stabCols("h8_", "h8"),
   ["h8_hours", "8 giờ", "h8 l muted", (r) => (r.h8_hours ? r.h8_hours.map(hh).join(" ") : "–")],
 ];
+// Kiểm tra ngoài mẫu (chỉ chế độ backtest, khi đặt % cuối giai đoạn): xếp hạng tính trên phần ĐẦU,
+// các cột này cho biết cấu hình đó làm ăn ra sao ở phần CUỐI chưa dùng để chọn.
+const OOS_COLS = [
+  ["is_net", "Net trong mẫu", "oos sep", (r) => (r.is_net == null ? "–" : sgn(r.is_net)),
+    (r) => `Phần đầu giai đoạn (dùng để xếp hạng) · ${fmt(r.is_n, 0)} lệnh`],
+  ["oos_net", "Net ngoài mẫu", "oos", (r) => (r.oos_net == null ? "–" : sgn(r.oos_net)),
+    (r) => `Phần cuối giai đoạn, không dùng để chọn cấu hình · ${fmt(r.oos_n, 0)} lệnh`],
+  ["oos_n", "Lệnh ngoài mẫu", "oos", (r) => fmt(r.oos_n, 0)],
+  ["oos_win_rate", "Win % ngoài mẫu", "oos", (r) => (r.oos_win_rate == null ? "–" : fmt(r.oos_win_rate, 1))],
+];
+let COLS = BASE_COLS;
 // ---- lọc theo cột kiểu Excel: nhiều điều kiện, tất cả phải thoả (AND)
 const FOPS = [[">", ">"], [">=", "≥"], ["<", "<"], ["<=", "≤"], ["=", "="], ["!=", "≠"], ["between", "trong khoảng"], ["outside", "ngoài khoảng"]];
 let FCONDS = [];

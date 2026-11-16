@@ -126,6 +126,7 @@ class BtJob:
             "keys": first.summary.get("keys"), "labels": first.summary.get("labels"),
             "objective": first.summary.get("objective"), "objective_label": first.summary.get("objective_label"),
             "grid_total": first.summary.get("grid_total"), "grid_mode": first.summary.get("grid_mode"),
+            "oos_pct": first.summary.get("oos_pct") or 0,
             "initial_balance": first.summary.get("initial_balance"),
             "n_combos": len(rows),
             "per_exchange": {ex: {k: r.summary.get(k) for k in
