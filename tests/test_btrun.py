@@ -168,3 +168,13 @@ def test_sweep_signal_params(prepared):
     # nhãn tiếng Việt, không phải khoá YAML
     assert "Khung nến (tín hiệu 1)" in r.rows[0]["params"]
     assert r.summary["labels"][-2:] == ["Khung nến (tín hiệu 1)", "Biến động (tín hiệu 1)"]
+
+
+def test_rows_keep_grid_order(prepared):
+    """Dòng giữ đúng thứ tự giá trị đã nhập trong lưới (không phải thứ tự chữ cái: '15m' < '1h' < '5m')."""
+    raw = dict(RAW, sweep={"exit.take_profit": "2, 1", "exit.stop_loss": "3",
+                           "signals.0.timeframe": "5m, 1m", "exit.max_hold": "1h"})
+    r = BtRun(raw, "binance", prepared=prepared)
+    r.execute()
+    assert [row["tp"] for row in r.rows] == [2.0, 2.0, 1.0, 1.0]
+    assert [row["values"]["signals.0.timeframe"] for row in r.rows] == ["5m", "1m", "5m", "1m"]

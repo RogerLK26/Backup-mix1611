@@ -344,7 +344,9 @@ class BtRun:
         else:
             self._smart(loop, res)
 
-        combos = sorted(res.keys(), key=lambda c: tuple(str(x) for x in c))
+        # giữ đúng thứ tự giá trị đã nhập trong lưới (vd khung nến 5m, 1h, 1d – không phải thứ tự chữ cái)
+        pos = [{v: i for i, v in enumerate(vals)} for vals in grid.values]
+        combos = sorted(res.keys(), key=lambda c: tuple(pos[i].get(v, 0) for i, v in enumerate(c)))
         self.combos = combos
         rows = []
         for ci, c in enumerate(combos):

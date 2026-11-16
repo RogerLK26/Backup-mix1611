@@ -222,7 +222,7 @@ async function loadResult(id) {
   $("hMode").innerHTML = opt(RES.modes, modeTxt); $("dMode").innerHTML = opt(RES.modes, modeTxt);
   $("fMode").innerHTML = `<option value="">Tất cả</option>` + opt(RES.modes, modeTxt);
   $("dTp").innerHTML = opt(tps); $("dSl").innerHTML = opt(sls, (x) => (x ? x : "không SL"));
-  const extras = [...new Set(RES.rows.map(extraKey))];
+  const extras = [...new Set(RES.rows.map(extraKey))].sort(cmpExtra);
   $("hExtraBox").hidden = extras.length < 2;
   $("hExtra").innerHTML = extras.map((k) => `<option value="${esc(k)}">${esc(extraLabel(k))}</option>`).join("");
   $("hMetric").querySelector('[value=diff]').disabled = RES.modes.length < 2 || isBt();
@@ -236,6 +236,16 @@ async function loadResult(id) {
 // bộ tham số "ngoài lưới TP/SL/giữ" của một dòng (chỉ chế độ backtest có)
 let EXTRA_KEYS = [];
 const extraKey = (r) => (EXTRA_KEYS.length ? JSON.stringify(EXTRA_KEYS.map((k) => (r.values || {})[k])) : "");
+// thứ tự trong ô chọn: theo độ dài thời gian / theo số, rồi mới tới chữ
+const cmpExtra = (a, b) => {
+  const A = JSON.parse(a || "[]"), B = JSON.parse(b || "[]");
+  for (let i = 0; i < A.length; i++) {
+    const num = (v) => { const d = durVal(v); return d !== null ? d : (v !== "" && isFinite(v) ? +v : v); };
+    const x = num(A[i]), y = num(B[i]);
+    if (x !== y) return (x > y) - (x < y);
+  }
+  return 0;
+};
 const extraLabel = (key) => {
   if (!key) return "";
   const vals = JSON.parse(key), lab = RES.summary.labels || [], keys = RES.summary.keys || [];
@@ -411,14 +421,30 @@ try { FCONDS = JSON.parse(localStorage.getItem("replayGridFilters") || "[]") || 
 const fCols = () => COLS.filter(([k]) => !["mode", "h8_hours"].includes(k))
   .map(([k, t]) => [k, k === "hold" ? "Giữ (phút)" : t]);
 const fVal = (r, k) => (k === "n_sl" ? r.n_sl + (r.n_liq || 0) : (k in r ? r[k] : (r.values || {})[k]));
-const fNum = (s) => { const t = String(s ?? "").trim().replace(/\s/g, "").replace(",", "."); return t === "" ? null : Number(t); };
+// "30m" / "1h" / "1d" -> số phút, để sắp xếp & lọc theo độ dài thật chứ không theo thứ tự chữ cái
+const DUR_MIN = { ms: 1 / 60000, s: 1 / 60, m: 1, h: 60, d: 1440, w: 10080 };
+const durVal = (v) => {
+  const m = typeof v === "string" && v.trim().match(/^(\d+(?:[.,]\d+)?)\s*(ms|s|m|h|d|w)$/i);
+  return m ? Number(m[1].replace(",", ".")) * DUR_MIN[m[2].toLowerCase()] : null;
+};
+const sortVal = (r, k) => { const v = fVal(r, k), d = durVal(v); return d === null ? v : d; };
+const fNum = (s) => {
+  const d = durVal(String(s ?? ""));
+  if (d !== null) return d;
+  const t = String(s ?? "").trim().replace(/\s/g, "").replace(",", ".");
+  return t === "" ? null : Number(t);
+};
 function fTest(c, r) {
-  const x = fVal(r, c.k);
-  if (typeof x === "string") {                                    // cột chữ: 1m / up / close…
-    const t = String(c.v ?? "").trim().toLowerCase();
-    if (!t) return true;
-    const eq = x.toLowerCase() === t;
-    return c.op === "!=" ? !eq : c.op === "=" ? eq : x.toLowerCase().includes(t);
+  let x = fVal(r, c.k);
+  if (typeof x === "string") {
+    const dx = durVal(x), da = durVal(String(c.v ?? ""));
+    if (dx !== null && da !== null) x = dx;                       // cột thời gian: so theo độ dài (30m < 1h < 1d)
+    else {                                                        // cột chữ: 1m / up / close…
+      const t = String(c.v ?? "").trim().toLowerCase();
+      if (!t) return true;
+      const eq = x.toLowerCase() === t;
+      return c.op === "!=" ? !eq : c.op === "=" ? eq : x.toLowerCase().includes(t);
+    }
   }
   const a = fNum(c.v), b = fNum(c.v2);
   if (a === null || Number.isNaN(a)) return true;                 // chưa nhập / nhập sai -> bỏ qua điều kiện
@@ -726,7 +752,7 @@ function renderTable() {
   if (fav) rows = rows.filter((r) => favGroupsOf(r).some((g) => FAVSEL.has(g)));
   if (FCONDS.length) rows = rows.filter((r) => FCONDS.every((c) => fTest(c, r)));
   $("fCount").textContent = FCONDS.length || fav ? `${rows.length.toLocaleString("vi-VN")} / ${total.toLocaleString("vi-VN")} cấu hình khớp lọc` : "";
-  rows.sort((a, b) => { const x = fVal(a, SORT.k), y = fVal(b, SORT.k); return ((x > y) - (x < y)) * SORT.d; });
+  rows.sort((a, b) => { const x = sortVal(a, SORT.k), y = sortVal(b, SORT.k); return ((x > y) - (x < y)) * SORT.d; });
   const act = rows.filter((r) => r.isActual);
   rows = rows.slice(0, top);
   for (const r of act) if (!rows.includes(r)) rows.push(r);
