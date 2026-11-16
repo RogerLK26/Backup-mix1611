@@ -130,7 +130,10 @@ tests/        unit test: engine đầy đủ, engine nhanh, replay, và lớp g�
 tools/        verify.py – kiểm định độ chính xác bằng cách duyệt từng tick
 ```
 
-Chạy test: `.venv/Scripts/python -m pytest -q` (không cần mạng, dữ liệu giả lập).
+Chạy test: `.venv/Scripts/python -m pytest -q` (không cần mạng, dữ liệu giả lập). Trong đó `tests/test_form_values.py`
+chốt rằng mọi giá trị giao diện chào ra đều được engine chấp nhận: danh sách lựa chọn (khung nến, chiều, kích hoạt,
+lệnh TP…) chỉ khai **một chỗ** trong `btmix/strategy.py`, server trả cho giao diện qua `/api/meta`, và mọi tham số
+trong "+ Quét thêm tham số" đều quét được thật.
 
 ## Độ chính xác
 

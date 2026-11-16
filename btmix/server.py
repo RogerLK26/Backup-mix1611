@@ -24,7 +24,7 @@ from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from backtester.config import TIMEFRAMES, build_config, load_raw
+from backtester.config import TIMEFRAMES, WEEKDAYS, build_config, load_raw
 from backtester.data import EXCHANGES, cache_admin, get_exchange
 from backtester.optimize import LABELS, OBJECTIVES, Grid, describe as describe_sweep
 from backtester.utils import data_path, log, mem_usage, release_memory
@@ -35,7 +35,7 @@ from replay.runner import guess_actual
 
 from . import history
 from .jobs import RUNNER, _clean, payload, resolve_actual
-from .strategy import _base_with_axis, prepare_raw
+from .strategy import PARAM_ENUMS, SIGNAL_ENUMS, _base_with_axis, prepare_raw
 
 STATIC = Path(__file__).parent / "static"
 REPO_CONFIGS = Path(__file__).resolve().parents[1] / "configs"
@@ -110,8 +110,10 @@ def meta():
             default = load_raw(p) or {}
         except Exception:  # noqa: BLE001
             default = {}
+    # các danh sách giá trị hợp lệ lấy thẳng từ engine -> giao diện không bao giờ chào giá trị engine không nhận
     return _clean({"exchanges": exs, "timeframes": list(TIMEFRAMES), "default": default, "fees": FEES,
                    "objectives": OBJECTIVES, "labels": LABELS, "actual_dir": str(ACTUAL_DIR),
+                   "enums": {"signal": SIGNAL_ENUMS, "params": PARAM_ENUMS, "weekdays": WEEKDAYS},
                    "data_dir": str(data_path(".").resolve())})
 
 

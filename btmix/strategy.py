@@ -27,6 +27,7 @@ import pandas as pd
 # _Ctx / _get là phần dùng chung với `backtester.optimize` (cùng cách gom nhóm tham số & bộ nhớ đệm tín hiệu).
 from backtester.optimize import (DURATION_KEYS, FAST_KEYS, LABELS, OBJECTIVES, Grid, _Ctx, _get, _num,
                                  fmt_value, parse_values, score)
+from backtester.config import TIMEFRAMES
 from backtester.engine.fast import quick_stats
 from backtester.progress import PROGRESS
 from backtester.runner import prepare
@@ -67,6 +68,20 @@ SIG_LABELS = {"timeframe": "Khung nến", "change_pct": "Biến động", "max_c
               "direction": "Chiều biến động", "side": "Vào lệnh", "trigger": "Kích hoạt",
               "pullback_pct": "Hồi từ đỉnh", "pullback_window": "Theo dõi hồi"}
 OTHER_LABELS = {"position.leverage": "Đòn bẩy", "position.margin": "Ký quỹ", "entry.latency_ms": "Độ trễ (ms)",
+                "position.margin_mode": "Cách tính ký quỹ", "exit.unit": "TP/SL tính theo",
+                "exit.tp_fill": "Khớp limit TP", "exit.exit_slippage_pct": "Trượt giá đóng hết giờ (%)",
+                "exit.liquidation": "Mô phỏng thanh lý", "exit.maintenance_margin_pct": "Ký quỹ duy trì (%)",
+                "fees.maker_pct": "Phí maker (%)", "fees.taker_pct": "Phí taker (%)", "fees.funding": "Phí funding",
+                "data.resolution": "Độ phân giải", "data.intrabar_fallback": "Khi chỉ có nến 1m",
+                "limits.timeout_counts_as": "Lệnh hết giờ tính vào bộ đếm TP/SL",
+                "limits.max_tp_per_coin_per_day": "Max TP/coin/ngày",
+                "limits.max_sl_per_coin_per_day": "Max SL/coin/ngày",
+                "limits.max_consecutive_sl": "Số SL liên tiếp tối đa",
+                "limits.pause_after_consecutive_sl": "Nghỉ sau N SL liên tiếp",
+                "limits.max_runtime": "Thời gian chạy tối đa/ngày",
+                "universe.market_cap_source": "Nguồn vốn hoá", "universe.unknown_market_cap": "Coin không tra được vốn hoá",
+                "universe.max_volume_24h": "Volume 24h ≤", "universe.min_market_cap": "Vốn hoá ≥",
+                "universe.max_market_cap": "Vốn hoá ≤",
                 "entry.slippage_pct": "Trượt giá vào (%)", "exit.tp_order": "Lệnh chốt lời",
                 "exit.sl_slippage_pct": "Trượt giá SL (%)", "limits.max_open_positions": "Lệnh mở đồng thời",
                 "limits.max_open_per_coin": "Lệnh mở / coin", "limits.max_trades_per_day": "Lệnh / ngày",
@@ -131,11 +146,52 @@ def normalize_sweep(sweep: dict | None) -> dict:
     return out
 
 
+# Giá trị hợp lệ của các tham số dạng lựa chọn – kiểm tra NGAY khi nhập, vì nếu để engine phát hiện thì
+# lượt chạy đã quét xong vài chục nghìn tổ hợp rồi mới dừng (xem _validate trong backtester/config.py).
+SIGNAL_ENUMS = {
+    "timeframe": list(TIMEFRAMES),
+    "direction": ["up", "down", "both"],
+    "trigger": ["touch", "close"],
+    "side": ["long", "short", "follow", "reverse"],
+}
+PARAM_ENUMS = {
+    "exit.tp_order": ["limit", "market"],
+    "exit.tp_fill": ["touch", "through"],
+    "exit.unit": ["price", "roe"],
+    "position.margin_mode": ["fixed", "percent"],
+    "data.resolution": ["auto", "tick", "1m"],
+    "data.intrabar_fallback": ["conservative", "ohlc", "optimistic"],
+    "limits.timeout_counts_as": ["pnl", "none"],
+    "universe.market_cap_source": ["supply", "coingecko", "current", "none"],
+    "universe.unknown_market_cap": ["exclude", "include"],
+}
+
+
+def check_sweep(raw: dict) -> None:
+    """Báo lỗi sớm cho lưới: tín hiệu không tồn tại, giá trị lựa chọn sai (vd khung nến '1D')."""
+    n_sig = len(raw.get("signals") or [])
+    for key, vals in (raw.get("sweep") or {}).items():
+        m = re.match(r"^signals\.(\d+)\.(\w+)$", key)
+        if m and int(m.group(1)) >= max(n_sig, 1):
+            raise ValueError(f"Lưới có {param_label(key)} nhưng chiến lược chỉ có {n_sig} tín hiệu")
+        allowed = SIGNAL_ENUMS.get(m.group(2)) if m else PARAM_ENUMS.get(key)
+        if not allowed or isinstance(vals, dict):
+            continue
+        for v in (vals if isinstance(vals, (list, tuple)) else [vals]):
+            if v is None:
+                continue
+            if str(v).strip() not in allowed:
+                raise ValueError(f"{param_label(key)}: giá trị {str(v).strip()!r} không hợp lệ "
+                                 f"– chọn trong {', '.join(allowed)}")
+
+
 def prepare_raw(raw: dict) -> dict:
     """Bản cấu hình đã chuẩn hoá lưới – dùng cho cả lúc kiểm tra cấu hình lẫn lúc chạy."""
     if not raw.get("sweep"):
         return raw
-    return dict(raw, sweep=normalize_sweep(raw["sweep"]))
+    out = dict(raw, sweep=normalize_sweep(raw["sweep"]))
+    check_sweep(out)
+    return out
 
 
 

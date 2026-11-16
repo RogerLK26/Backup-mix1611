@@ -6,8 +6,26 @@
    {k: đường dẫn trong YAML, label, type, d: mặc định} nên đọc/ghi cấu hình, lưu preset YAML, "dùng lại cấu hình"
    của lịch sử đều dùng chung một chỗ – thêm một tham số chỉ là thêm một dòng. */
 
-const TF = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1D"];
+// Danh sách giá trị hợp lệ do server (engine) cung cấp – ở đây chỉ có nhãn tiếng Việt cho từng giá trị,
+// nên không bao giờ chào được giá trị mà engine không nhận.
+let TF = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d"];
 const WEEKDAYS = [["mon", "T2"], ["tue", "T3"], ["wed", "T4"], ["thu", "T5"], ["fri", "T6"], ["sat", "T7"], ["sun", "CN"]];
+const VI = {
+  "exit.unit": { price: "% giá", roe: "% ROE (đã nhân đòn bẩy)" },
+  "exit.tp_order": { limit: "Limit (phí maker)", market: "Market (phí taker)" },
+  "exit.tp_fill": { touch: "Chạm là khớp", through: "Phải vượt qua (khắt khe)" },
+  "position.margin_mode": { fixed: "USDT", percent: "% số dư" },
+  "data.resolution": { auto: "Tự động (dùng tick khi có)", tick: "Bắt buộc tick", "1m": "Chỉ nến 1m (nhanh, kém chính xác)" },
+  "data.intrabar_fallback": { conservative: "Bất lợi (an toàn)", ohlc: "Theo thứ tự O-H-L-C", optimistic: "Thuận lợi" },
+  "limits.timeout_counts_as": { pnl: "Có – lãi tính là TP, lỗ tính là SL", none: "Không tính" },
+  "universe.market_cap_source": { none: "Không lọc", supply: "Cung lưu hành × giá lúc có tín hiệu (nhanh)",
+    coingecko: "CoinGecko theo từng ngày (chậm)", current: "Vốn hoá hiện tại của CoinGecko" },
+  "universe.unknown_market_cap": { exclude: "Bỏ qua", include: "Vẫn chạy" },
+  direction: { up: "tăng", down: "giảm", both: "tăng hoặc giảm" },
+  trigger: { touch: "ngay khi chạm ngưỡng", close: "khi nến đóng" },
+  side: { reverse: "ngược chiều", follow: "thuận chiều", long: "Long", short: "Short" },
+};
+const viOpts = (key, values) => (values || []).map((v) => [v, (VI[key] || {})[v] || v]);
 const DEF_SIGNAL = { timeframe: "5m", change_pct: 3, direction: "up", trigger: "touch", side: "reverse" };
 let META = null, PRESETS_LIST = [], SIGNALS = [], EXTRA_SWEEP = [], CURRENT_RAW = {}, vTimer = null;
 
@@ -23,10 +41,8 @@ const GROUPS = [
       { k: "universe.min_max_leverage", label: "Đòn bẩy tối đa của sàn ≥", type: "num", hint: "bỏ coin sàn chỉ cho đòn bẩy thấp", d: null },
       { k: "universe.min_market_cap", label: "Vốn hoá ≥ (USD)", type: "num", d: null },
       { k: "universe.max_market_cap", label: "Vốn hoá ≤ (USD)", type: "num", d: null },
-      { k: "universe.market_cap_source", label: "Nguồn vốn hoá", type: "select", d: "supply",
-        opts: [["none", "Không lọc"], ["supply", "Cung lưu hành × giá (nhanh)"], ["coingecko", "CoinGecko theo ngày (chậm)"]] },
-      { k: "universe.unknown_market_cap", label: "Coin không tra được vốn hoá", type: "select", d: "exclude",
-        opts: [["exclude", "Bỏ qua"], ["include", "Vẫn chạy"]] },
+      { k: "universe.market_cap_source", label: "Nguồn vốn hoá", type: "select", d: "supply", opts: [] },
+      { k: "universe.unknown_market_cap", label: "Coin không tra được vốn hoá", type: "select", d: "exclude", opts: [] },
       { k: "universe.coingecko_api_key", label: "CoinGecko API key", type: "text", d: "" },
     ],
   },
@@ -38,9 +54,9 @@ const GROUPS = [
   },
   {
     id: "exit", title: "Thoát lệnh & phí", hint: "TP/SL lấy từ lưới ở phần Cơ bản; đây là cách khớp và phí.", fields: [
-      { k: "exit.unit", label: "TP/SL tính theo", type: "select", d: "price", opts: [["price", "% giá"], ["roe", "% ROE (đã nhân đòn bẩy)"]] },
-      { k: "exit.tp_order", label: "Lệnh chốt lời", type: "select", d: "limit", opts: [["limit", "Limit (phí maker)"], ["market", "Market (phí taker)"]] },
-      { k: "exit.tp_fill", label: "Khớp limit TP", type: "select", d: "touch", opts: [["touch", "Chạm là khớp"], ["through", "Phải vượt qua (khắt khe)"]] },
+      { k: "exit.unit", label: "TP/SL tính theo", type: "select", d: "price", opts: [] },
+      { k: "exit.tp_order", label: "Lệnh chốt lời", type: "select", d: "limit", opts: [] },
+      { k: "exit.tp_fill", label: "Khớp limit TP", type: "select", d: "touch", opts: [] },
       { k: "exit.sl_slippage_pct", label: "Trượt giá khi cắt lỗ (%)", type: "num", d: 0 },
       { k: "exit.exit_slippage_pct", label: "Trượt giá khi đóng hết giờ (%)", type: "num", d: 0 },
       { k: "fees.maker_pct", label: "Phí maker (%)", type: "num", d: 0.02 },
@@ -68,8 +84,7 @@ const GROUPS = [
       { k: "limits.daily_loss_limit", label: "Giới hạn lỗ / ngày (USDT)", type: "num", d: null },
       { k: "limits.max_runtime", label: "Thời gian chạy tối đa mỗi ngày", type: "dur", d: null },
       { k: "limits.day_reset_hour", label: "Giờ bắt đầu ngày mới", type: "num", d: 0 },
-      { k: "limits.timeout_counts_as", label: "Lệnh hết giờ tính là", type: "select", d: "pnl",
-        opts: [["pnl", "TP/SL theo lãi lỗ"], ["none", "Không tính"], ["tp", "TP"], ["sl", "SL"]] },
+      { k: "limits.timeout_counts_as", label: "Lệnh hết giờ tính vào bộ đếm TP/SL", type: "select", d: "pnl", opts: [] },
     ],
   },
   {
@@ -96,10 +111,8 @@ const GROUPS = [
       { k: "name", label: "Tên chiến lược", type: "text", w: 2, d: "strategy" },
       { k: "timezone", label: "Múi giờ", type: "select", opts: ["Asia/Ho_Chi_Minh", "UTC"], d: "Asia/Ho_Chi_Minh" },
       { k: "initial_balance", label: "Vốn ban đầu (USDT)", type: "num", d: 1000 },
-      { k: "data.resolution", label: "Độ phân giải", type: "select", d: "auto",
-        opts: [["auto", "Tự động (dùng tick khi có)"], ["tick", "Bắt buộc tick"], ["1m", "Chỉ nến 1m (nhanh, kém chính xác)"]] },
-      { k: "data.intrabar_fallback", label: "Khi chỉ có nến 1m", type: "select", d: "conservative",
-        opts: [["conservative", "Bất lợi (an toàn)"], ["ohlc", "Theo thứ tự O-H-L-C"], ["optimistic", "Thuận lợi"]] },
+      { k: "data.resolution", label: "Độ phân giải", type: "select", d: "auto", opts: [] },
+      { k: "data.intrabar_fallback", label: "Khi chỉ có nến 1m", type: "select", d: "conservative", opts: [] },
       { k: "data.workers", label: "Số luồng tải dữ liệu", type: "num", d: 8 },
     ],
   },
@@ -107,11 +120,13 @@ const GROUPS = [
 // các ô của phần Cơ bản (đặt trong khung riêng, xem index.html)
 const BASIC = [
   { k: "position.margin", label: "Ký quỹ mỗi lệnh", type: "num", d: 10 },
-  { k: "position.margin_mode", label: "Tính theo", type: "select", d: "fixed", opts: [["fixed", "USDT"], ["percent", "% số dư"]] },
+  { k: "position.margin_mode", label: "Tính theo", type: "select", d: "fixed", opts: [] },
   { k: "position.leverage", label: "Đòn bẩy", type: "num", d: 10 },
 ];
 const ALL_FIELDS = () => BASIC.concat(...GROUPS.map((g) => g.fields));
 
+const enumOf = (field) => (META && META.enums && META.enums.signal[field]) ||
+  ({ direction: ["up", "down", "both"], trigger: ["touch", "close"], side: ["long", "short", "follow", "reverse"] })[field];
 const path = (o, k) => k.split(".").reduce((x, p) => (x == null ? undefined : x[p]), o);
 function setPath(o, k, v) {
   const ks = k.split(".");
@@ -182,13 +197,13 @@ function signalHtml(s, i) {
   return `<div class="sigrow" data-i="${i}">
     <div class="sent">
       <span>Khi giá</span>
-      ${sel("direction", [["up", "tăng"], ["down", "giảm"], ["both", "tăng hoặc giảm"]], s.direction || "up")}
+      ${sel("direction", viOpts("direction", enumOf("direction")), s.direction || "up")}
       <span>≥</span><input type="number" step="any" data-s="change_pct" value="${s.change_pct ?? 3}" class="num3">
       <span>% trong nến</span>
       ${sel("timeframe", TF, s.timeframe || "5m")}
       <span>→ vào lệnh</span>
-      ${sel("side", [["reverse", "ngược chiều"], ["follow", "thuận chiều"], ["long", "Long"], ["short", "Short"]], s.side || "reverse")}
-      ${sel("trigger", [["touch", "ngay khi chạm ngưỡng"], ["close", "khi nến đóng"]], s.trigger || "touch")}
+      ${sel("side", viOpts("side", enumOf("side")), s.side || "reverse")}
+      ${sel("trigger", viOpts("trigger", enumOf("trigger")), s.trigger || "touch")}
       <span class="spacer"></span>
       <button class="btn small ghost sigmore" title="Biến động tối đa, chờ giá hồi">⚙ Lọc thêm</button>
       <button class="btn small ghost danger sigdel" title="Xoá tín hiệu">✕</button>
@@ -233,7 +248,7 @@ const signalTxt = (s) => `${s.timeframe} ${{ up: "tăng", down: "giảm", both: 
 // Tham số quét thêm: [khoá trong YAML, tên hiện trên giao diện, gợi ý giá trị].
 // Nhóm tín hiệu sinh theo số tín hiệu đang có; mỗi giá trị của nhóm này phải quét lại tín hiệu nên chậm hơn TP/SL/giữ.
 const SIG_SWEEP = [
-  ["timeframe", "Khung nến", "1m, 3m, 5m, 15m, 1h"],
+  ["timeframe", "Khung nến", "1m, 5m, 15m, 1h, 4h, 1d"],
   ["change_pct", "Biến động ≥ (%)", "2, 3, 4, 5 hoặc 1-5:0.5"],
   ["max_change_pct", "Biến động tối đa (%)", "5, 10, none"],
   ["direction", "Chiều biến động", "up, down, both"],
@@ -249,8 +264,6 @@ const OTHER_SWEEP = [
   ["entry.slippage_pct", "Trượt giá vào (%)", "0, 0.05, 0.1"],
   ["exit.tp_order", "Lệnh chốt lời", "limit, market"],
   ["exit.sl_slippage_pct", "Trượt giá SL (%)", "0, 0.1, 0.5"],
-  ["universe.min_volume_24h", "Volume 24h ≥", "1000000, 5000000"],
-  ["universe.min_max_leverage", "Đòn bẩy sàn cho phép ≥", "20, 50"],
   ["limits.max_open_positions", "Lệnh mở đồng thời", "3, 5, 10"],
   ["limits.max_open_per_coin", "Lệnh mở / coin", "1, 2"],
   ["limits.max_trades_per_day", "Lệnh / ngày", "5, 10, none"],
@@ -476,6 +489,15 @@ async function initConfig() {
   META = await api("/api/meta");
   $("exchanges").innerHTML = META.exchanges.map((e) => `<button class="chip" data-ex="${e.id}"
     title="Nến 1m: ${esc(e.klines)} · Tick: ${esc(e.ticks)}">${esc(e.name)}</button>`).join("");
+  TF = (META.enums && META.enums.signal.timeframe) || META.timeframes || TF;
+  for (const g of GROUPS) {
+    for (const f of g.fields) {
+      if (f.type === "select" && META.enums && META.enums.params[f.k]) f.opts = viOpts(f.k, META.enums.params[f.k]);
+    }
+  }
+  for (const f of BASIC) {
+    if (f.type === "select" && META.enums && META.enums.params[f.k]) f.opts = viOpts(f.k, META.enums.params[f.k]);
+  }
   const rank = GROUPS.find((g) => g.id === "rank");
   rank.fields[0].opts = Object.entries(META.objectives);
   rank.fields[1].opts = [["", "— không dùng —"]].concat(Object.entries(META.objectives));
