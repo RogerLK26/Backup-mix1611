@@ -234,3 +234,7 @@ input.dt { width: 160px; margin: 0; }
 .runinfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
 .runinfo .prog { margin: 0; }
 @media (max-width: 760px) { .runbar.sticky { flex-wrap: wrap; } .runinfo { flex-basis: 100%; } }
+
+/* ô chọn bộ tham số khác của heatmap: nhãn dài -> giới hạn bề rộng, cắt bằng dấu … */
+#hExtraBox { max-width: 360px; min-width: 0; }
+#hExtra { max-width: 320px; text-overflow: ellipsis; }

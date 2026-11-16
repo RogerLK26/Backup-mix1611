@@ -231,8 +231,15 @@ let EXTRA_KEYS = [];
 const extraKey = (r) => (EXTRA_KEYS.length ? JSON.stringify(EXTRA_KEYS.map((k) => (r.values || {})[k])) : "");
 const extraLabel = (key) => {
   if (!key) return "";
-  const vals = JSON.parse(key), lab = RES.summary.labels || [];
-  return EXTRA_KEYS.map((k, i) => `${lab[(RES.summary.keys || []).indexOf(k)] || k} ${vals[i]}`).join(" · ");
+  const vals = JSON.parse(key), lab = RES.summary.labels || [], keys = RES.summary.keys || [];
+  // mọi tham số cùng một tín hiệu -> bỏ phần "(tín hiệu 1)" cho gọn
+  const idx = EXTRA_KEYS.map((k) => (k.match(/^signals\.(\d+)\./) || [])[1]).filter((x) => x !== undefined);
+  const one = idx.every((x) => x === idx[0]);
+  return EXTRA_KEYS.map((k, i) => {
+    let name = lab[keys.indexOf(k)] || k;
+    if (one) name = name.replace(/\s*\(tín hiệu \d+\)/, "");
+    return `${name} ${vals[i]}`;
+  }).join(" · ");
 };
 const bestRow = (mode) => RES.rows.filter((r) => r.n > 0 && (!mode || r.mode === mode)).sort((a, b) => b.net - a.net)[0];
 
@@ -1045,7 +1052,7 @@ $("grid").addEventListener("click", (e) => {
   if (row && row.h8_hours) HOURS = new Set(row.h8_hours);
   openDetail(tr.dataset.m, +tr.dataset.ci);
 });
-["hMode", "hHold", "hMetric"].forEach((id) => $(id).addEventListener("input", renderHeat));
+["hMode", "hHold", "hMetric", "hExtra"].forEach((id) => $(id).addEventListener("input", renderHeat));
 $("heat").addEventListener("click", (e) => {
   const td = e.target.closest("td[data-ci]"); if (!td || td.dataset.ci === "") return;
   // đang xem chỉ số 8h tốt nhất -> mở chi tiết với đúng 8 giờ của ô đó
