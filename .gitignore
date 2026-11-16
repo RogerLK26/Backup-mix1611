@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.claude/
+# dữ liệu tải về, kết quả, cấu hình người dùng (tạo lại được)
+cache/
+results/
+favorites.json
+favorites.tmp
+grid_filters.json
+grid_filters.tmp
+ui_prefs.json
+ui_prefs.tmp
+# lịch sử lệnh thật – dữ liệu riêng, không đưa lên git
+Actual Performance/*
+!Actual Performance/.gitkeep

@@ -1,0 +1,84 @@
+name: 5m long 3:3
+exchange:
+- okx
+- bybit
+start: 2026-10-08 00:00
+end: 2026-10-15 00:00
+timezone: Asia/Ho_Chi_Minh
+initial_balance: 1000
+data:
+  resolution: auto
+  intrabar_fallback: optimistic
+  cache_dir: cache
+  workers: 8
+universe:
+  symbols: []
+  exclude:
+  - BTCUSDT
+  - ETHUSDT
+  - USDCUSDT
+  min_volume_24h: 5000000
+  max_volume_24h: null
+  min_market_cap: null
+  max_market_cap: null
+  market_cap_source: none
+  unknown_market_cap: include
+  coingecko_api_key: ''
+  coingecko_ids: {}
+signals:
+- timeframe: 5m
+  change_pct: 3
+  direction: up
+  trigger: touch
+  side: follow
+entry:
+  latency_ms: 300
+  slippage_pct: 0.2
+position:
+  margin: 2
+  margin_mode: fixed
+  leverage: 20
+exit:
+  unit: price
+  take_profit: 3
+  stop_loss: 3
+  tp_order: market
+  tp_fill: touch
+  sl_slippage_pct: 0.1
+  exit_slippage_pct: 0.1
+  max_hold: 2h
+  liquidation: true
+  maintenance_margin_pct: 0.5
+fees:
+  maker_pct: 0.02
+  taker_pct: 0.05
+  funding: true
+limits:
+  max_open_positions: null
+  max_open_per_coin: null
+  max_trades_per_day: null
+  max_tp_per_day: null
+  max_sl_per_day: null
+  max_tp_per_coin_per_day: null
+  max_sl_per_coin_per_day: null
+  cooldown_after_tp_coin: 10m
+  cooldown_after_sl_coin: 10m
+  cooldown_after_trade_coin: null
+  cooldown_after_sl_global: null
+  max_consecutive_sl: null
+  pause_after_consecutive_sl: null
+  daily_loss_limit: null
+  max_runtime: null
+  day_reset_hour: 0
+  timeout_counts_as: pnl
+schedule:
+  sessions:
+  - 00:00-24:00
+  weekdays:
+  - mon
+  - tue
+  - wed
+  - thu
+  - fri
+  - sat
+  - sun
