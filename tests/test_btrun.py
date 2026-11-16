@@ -19,7 +19,7 @@ from backtester.engine.backtest import Backtester, Universe, scan_candidates
 from backtester.engine.fast import ExitAxis, FastEvaluator
 from backtester.utils import DAY_MS, parse_duration
 
-from btmix.strategy import BtRun, _sessions_for
+from btmix.strategy import BtRun, _sessions_for, normalize_sweep
 
 from test_engine import D0, FakeStore
 from test_fast import _walk
@@ -129,3 +129,28 @@ def test_neighbours_and_stability(run):
     if row["h8_hours"]:
         assert len(row["h8_hours"]) <= 8
         assert row["h8_n"] <= row["n"]
+
+
+def test_normalize_sweep():
+    """Ô nhập lưới chấp nhận cả danh sách lẫn khoảng "từ-đến:bước", và 0 = không đặt."""
+    n = normalize_sweep({"exit.take_profit": "0.5-2:0.5"})["exit.take_profit"]
+    assert n == [0.5, 1.0, 1.5, 2.0]
+    assert normalize_sweep({"exit.stop_loss": "3, 5, 10"})["exit.stop_loss"] == [3, 5, 10]
+    # trộn danh sách + khoảng, bỏ giá trị trùng
+    assert normalize_sweep({"exit.take_profit": "1, 1-2:0.5"})["exit.take_profit"] == [1, 1.5, 2.0]
+    # 0 = không đặt SL / không giới hạn thời gian giữ lệnh
+    assert normalize_sweep({"exit.stop_loss": "3, 0"})["exit.stop_loss"] == [3, None]
+    assert normalize_sweep({"exit.max_hold": "30m, 0"})["exit.max_hold"] == ["30m", None]
+    # khoảng thời gian
+    assert normalize_sweep({"exit.max_hold": "30m-2h:30m"})["exit.max_hold"] == ["30m", "1h", "90m", "2h"]
+    # tham số khác giữ nguyên kiểu
+    assert normalize_sweep({"position.leverage": [5, 10]})["position.leverage"] == [5, 10]
+
+
+def test_grid_accepts_range_text(prepared):
+    """Lưới gõ dạng khoảng chạy được thật (trước đây engine chỉ hiểu {from,to,step})."""
+    raw = dict(RAW, sweep={"exit.take_profit": "0.5-1:0.5", "exit.stop_loss": "2, 5", "exit.max_hold": "15m, 1h"})
+    r = BtRun(raw, "binance", prepared=prepared)
+    r.execute()
+    assert len(r.rows) == 2 * 2 * 2
+    assert sorted({row["tp"] for row in r.rows}) == [0.5, 1.0]

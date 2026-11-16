@@ -354,8 +354,14 @@ async function validateNow() {
   if (!comboCount()) { box.innerHTML = `<span class="neg">Chưa có lưới TP / SL / thời gian giữ lệnh</span>`; box.hidden = false; return; }
   try {
     const d = await postJ("/api/validate", { config: cfg, exchanges: exs });
-    box.hidden = !!d.ok;
-    if (!d.ok) box.innerHTML = `<span class="neg">${esc(d.error)}</span>`;
+    if (!d.ok) { box.innerHTML = `<span class="neg">${esc(d.error)}</span>`; box.hidden = false; return; }
+    // cấu hình chạy được, nhưng vài trường hợp dễ nhầm thì nhắc một dòng
+    const notes = [];
+    if (!$("swTp").value.trim()) notes.push("lưới không có TP – lệnh chỉ thoát khi chạm SL hoặc hết giờ");
+    if (!$("swSl").value.trim()) notes.push("lưới không có SL – lệnh chỉ thoát khi chạm TP hoặc hết giờ");
+    if (!$("swHold").value.trim()) notes.push("không giới hạn thời gian giữ lệnh");
+    box.innerHTML = notes.length ? `<span class="warn">Lưu ý: ${esc(notes.join(" · "))}</span>` : "";
+    box.hidden = !notes.length;
   } catch (e) { box.hidden = true; }
 }
 

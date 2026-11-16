@@ -35,7 +35,7 @@ from replay.runner import guess_actual
 
 from . import history
 from .jobs import RUNNER, _clean, payload, resolve_actual
-from .strategy import _base_with_axis
+from .strategy import _base_with_axis, prepare_raw
 
 STATIC = Path(__file__).parent / "static"
 REPO_CONFIGS = Path(__file__).resolve().parents[1] / "configs"
@@ -231,6 +231,7 @@ def yaml_parse(body: dict = Body(...)):
 def validate(body: dict = Body(...)):
     raw, exchanges = body.get("config") or {}, body.get("exchanges") or []
     try:
+        raw = prepare_raw(raw)
         base = raw
         if raw.get("sweep"):
             # TP/SL/giữ lệnh có thể chỉ nằm trong lưới -> điền giá trị đầu tiên như lúc chạy thật

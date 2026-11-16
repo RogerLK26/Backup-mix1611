@@ -26,7 +26,7 @@ from replay.bt import RESULTS_DIR
 from replay.runner import Run as ReplayRun
 
 from . import history
-from .strategy import BtRun
+from .strategy import BtRun, prepare_raw
 
 JOBS_DIR = data_path("results") / "jobs"
 MAX_LIVE_RUNS = 3
@@ -66,7 +66,7 @@ class BtJob:
 
     def __init__(self, request: dict, progress=None):
         self.request = request
-        self.raw = dict(request.get("config") or {})
+        self.raw = prepare_raw(dict(request.get("config") or {}))
         exs = request.get("exchanges") or self.raw.get("exchange") or ["binance"]
         if isinstance(exs, str):
             exs = [x.strip() for x in exs.split(",") if x.strip()]

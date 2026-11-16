@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import dataclasses
 import itertools
+import re
 import math
 import random
 import time
@@ -24,7 +25,8 @@ import numpy as np
 import pandas as pd
 
 # _Ctx / _get là phần dùng chung với `backtester.optimize` (cùng cách gom nhóm tham số & bộ nhớ đệm tín hiệu).
-from backtester.optimize import (FAST_KEYS, LABELS, OBJECTIVES, Grid, _Ctx, _get, fmt_value, score)
+from backtester.optimize import (DURATION_KEYS, FAST_KEYS, LABELS, OBJECTIVES, Grid, _Ctx, _get, _num,
+                                 fmt_value, parse_values, score)
 from backtester.engine.fast import quick_stats
 from backtester.progress import PROGRESS
 from backtester.runner import prepare
@@ -59,6 +61,55 @@ REJECT_LABELS = {
     "consecutive_sl_pause": "Đang nghỉ sau nhiều SL liên tiếp",
 }
 TOP_HOURS_K = 8
+
+# "từ-đến:bước" viết thẳng trong ô nhập (cú pháp của chế độ replay) – engine gốc chỉ hiểu danh sách hoặc {from,to,step}
+_RANGE = re.compile(r"^([\d.]+\s*[a-zA-Z]*)\s*-\s*([\d.]+\s*[a-zA-Z]*)\s*:\s*([\d.]+\s*[a-zA-Z]*)$")
+_ZERO_IS_NONE = ("exit.take_profit", "exit.stop_loss")
+
+
+def normalize_sweep(sweep: dict | None) -> dict:
+    """Mở rộng lưới về danh sách giá trị, chấp nhận mọi cách viết:
+
+        "1, 1.5, 2"            danh sách
+        "0.5-3:0.25"           khoảng từ-đến:bước (gõ thẳng, như chế độ replay)
+        "30m, 1h-4h:1h"        trộn cả hai, có cả thời gian
+        {from: 0.5, to: 3, step: 0.25}   dạng YAML của bản gốc
+        0 ở TP/SL/giữ lệnh     = không đặt (none)
+    """
+    out = {}
+    for k, spec in (sweep or {}).items():
+        if isinstance(spec, dict) or spec is None:
+            out[k] = spec
+            continue
+        parts = re.split(r"[,;]", spec) if isinstance(spec, str) else list(spec)
+        vals = []
+        for p in parts:
+            p = str(p).strip() if not isinstance(p, (int, float)) else p
+            if p == "" or p is None:
+                continue
+            m = _RANGE.match(p) if isinstance(p, str) else None
+            if m:
+                vals += parse_values(k, {"from": m.group(1).strip(), "to": m.group(2).strip(),
+                                         "step": m.group(3).strip()})
+            else:
+                vals.append(_num(p))          # "3" -> 3 để không trùng với 3.0 của khoảng
+        # 0 = "không đặt": TP/SL bỏ hẳn mức đó, thời gian giữ lệnh = không giới hạn
+        if k in _ZERO_IS_NONE or k in DURATION_KEYS:
+            vals = [None if (str(v).strip() in ("0", "0.0") or v == 0) else v for v in vals]
+        seen = []
+        for v in vals:
+            if v not in seen:
+                seen.append(v)
+        out[k] = seen or spec
+    return out
+
+
+def prepare_raw(raw: dict) -> dict:
+    """Bản cấu hình đã chuẩn hoá lưới – dùng cho cả lúc kiểm tra cấu hình lẫn lúc chạy."""
+    if not raw.get("sweep"):
+        return raw
+    return dict(raw, sweep=normalize_sweep(raw["sweep"]))
+
 
 
 def _f(v):
@@ -148,11 +199,11 @@ class BtRun:
     """1 lượt backtest chiến lược trên 1 sàn (lưới cấu hình + chi tiết theo yêu cầu)."""
 
     def __init__(self, raw: dict, exchange: str, progress=None, h8: bool = True, prepared=None):
-        self.raw = raw
+        self.raw = prepare_raw(raw)
         self._prepared = prepared          # (cfg, store, mcap, universe) có sẵn – dùng lại dữ liệu đã tải / test
         self.exchange = exchange.lower()
         self.tz = raw.get("timezone") or "Asia/Ho_Chi_Minh"
-        self.grid = Grid(raw)
+        self.grid = Grid(self.raw)
         if not self.grid.keys:
             raise ValueError("Cần ít nhất một tham số trong 'Nhiều chiến lược' (TP / SL / thời gian giữ lệnh)")
         if not any(k in FAST_KEYS for k in self.grid.keys):
