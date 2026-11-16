@@ -69,7 +69,7 @@ hiệu chỉnh trượt giá** từ lệnh thật. Đặt file CSV vào `Actual 
 | Tab | Nội dung |
 |---|---|
 | **Tổng quan** | Cấu hình tốt nhất mỗi sàn / mỗi chế độ (replay: thêm cột *Thực tế* và khung *Kiểm định*), và vì sao tín hiệu bị bỏ (theo từng giới hạn) |
-| **Bảng xếp hạng** | Toàn bộ cấu hình đã chạy: sắp xếp, lọc theo cột kiểu Excel, lưu bộ lọc đã đặt tên, ♥ nhóm yêu thích, chỉ số **ổn định** (R² đường vốn, % ngày lãi, net khi bỏ coin lãi nhất, net TB các ô lân cận), nhóm cột **8 giờ tốt nhất**, tải CSV |
+| **Bảng xếp hạng** | Toàn bộ cấu hình đã chạy (có cột riêng cho từng tham số quét thêm – khung nến, biến động %… – lọc và sắp xếp được, kể cả cột chữ): sắp xếp, lọc theo cột kiểu Excel, lưu bộ lọc đã đặt tên, ♥ nhóm yêu thích, chỉ số **ổn định** (R² đường vốn, % ngày lãi, net khi bỏ coin lãi nhất, net TB các ô lân cận), nhóm cột **8 giờ tốt nhất**, tải CSV |
 | **Heatmap TP × SL** | Mỗi ô là một cấu hình; chọn chỉ số (net, net/DD, win rate, PF, ổn định, 8h tốt nhất…); bấm ô để mở chi tiết |
 | **Chi tiết cấu hình** | Bấm **dòng bất kỳ** là có ngay: KPI, đường vốn, lãi/lỗ theo ngày, theo giờ vào lệnh, theo coin, bảng từng lệnh (tới mili-giây), tải CSV |
 

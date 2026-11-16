@@ -325,6 +325,10 @@ class Runner:
         with self.lock:
             self.queue = sorted(waiting, key=lambda m: m.get("queue_pos", m["created"]))
             self._ensure_worker()
+        if self.run_id is None:          # mở lại trang sau khi khởi động lại: hiện luôn lượt chạy gần nhất
+            runs = history.list_runs()
+            if runs:
+                self.run_id = runs[0]["id"]
 
     def _ensure_worker(self):
         if self.queue and (self._worker is None or not self._worker.is_alive()):

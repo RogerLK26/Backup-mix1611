@@ -238,3 +238,5 @@ input.dt { width: 160px; margin: 0; }
 /* ô chọn bộ tham số khác của heatmap: nhãn dài -> giới hạn bề rộng, cắt bằng dấu … */
 #hExtraBox { max-width: 360px; min-width: 0; }
 #hExtra { max-width: 320px; text-overflow: ellipsis; }
+
+table.data td.xp, table.data th.xp { background: color-mix(in srgb, var(--accent2) 10%, transparent); }

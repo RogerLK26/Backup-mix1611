@@ -410,7 +410,20 @@ def _csv(rows: list[dict], name: str):
 @app.get("/api/export/grid.csv")
 def export_grid(run: str | None = None):
     job = _job(run)
-    rows = [{k: v for k, v in r.items() if k not in ("combo", "values", "labels", "h8_hours")} for r in job.rows]
+    keys = job.summary.get("keys") or []
+    labels = job.summary.get("labels") or keys
+    rows = []
+    for r in job.rows:
+        vals = r.get("values") or {}
+        # các tham số quét thêm (khung nến, biến động %…) thành cột riêng, tên cột là nhãn tiếng Việt
+        extra = {labels[i] if i < len(labels) else k: vals.get(k)
+                 for i, k in enumerate(keys) if k in vals and k not in ("exit.take_profit", "exit.stop_loss",
+                                                                       "exit.max_hold")}
+        head = {k: r.get(k) for k in ("mode", "ci", "tp", "sl", "hold")}
+        rest = {k: v for k, v in r.items()
+                if k not in ("combo", "values", "labels", "h8_hours", *head)}
+        rows.append({**head, **extra, **rest,
+                     "h8_hours": " ".join(str(h) for h in (r.get("h8_hours") or []))})
     return _csv(rows, f"bang_xep_hang_{job.kind}.csv")
 
 

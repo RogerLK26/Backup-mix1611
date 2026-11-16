@@ -203,7 +203,14 @@ async function loadResult(id) {
     const ac = S.actual_cfg;
     RES.rows.forEach((r) => { r.isActual = r.mode === "single" && Math.abs(r.tp - ac.tp) < 1e-9 && Math.abs(r.sl - ac.sl) < 1e-9 && r.hold === ac.hold; });
   }
-  COLS = BASE_COLS.concat(RES.rows.some((r) => r.oos_net != null) ? OOS_COLS : []);
+  const extraCols = EXTRA_KEYS.map((k) => {
+    const i = (RES.summary.keys || []).indexOf(k);
+    const label = ((RES.summary.labels || [])[i] || k).replace(/\s*\(tín hiệu (\d+)\)/, " $1");
+    return [k, label, "xp", (r) => paramTxt((r.values || {})[k]), () => `Tham số quét thêm: ${(RES.summary.labels || [])[i] || k}`];
+  });
+  COLS = BASE_COLS.slice(0, 4).concat(extraCols, BASE_COLS.slice(4),
+    RES.rows.some((r) => r.oos_net != null) ? OOS_COLS : []);
+  PIN_COLS = Math.min(4 + extraCols.length, 6);
   document.querySelectorAll(".replay-only").forEach((x) => (x.hidden = isBt()));
   document.querySelectorAll(".bt-only").forEach((x) => (x.hidden = !isBt()));
   resetDates();
@@ -369,6 +376,7 @@ function stabCols(pre, cls) {
       (r) => (r[pre + "nb_net"] == null ? "" : `Net trung bình ${r.nb_cnt} ô kề trên heatmap (TP ±1 nấc, SL ±1 nấc, cùng giữ lệnh) · thấp nhất ${fmt(r[pre + "nb_min"])}`)],
   ];
 }
+const paramTxt = (v) => (v === null || v === undefined || v === "" ? "–" : typeof v === "number" ? fmt(v, Number.isInteger(v) ? 0 : 2) : String(v));
 const BASE_COLS = [
   ["mode", "Chế độ", "l", (r) => modeTxt(r.mode) + (r.isActual ? " ★" : "")], ["tp", "TP %", "", (r) => fmt(r.tp)],
   ["sl", "SL %", "", (r) => (r.sl ? fmt(r.sl, 1) : "–")], ["hold", "Giữ", "", (r) => holdTxt(r.hold)],
@@ -402,12 +410,18 @@ let FCONDS = [];
 try { FCONDS = JSON.parse(localStorage.getItem("replayGridFilters") || "[]") || []; } catch (e) { FCONDS = []; }
 const fCols = () => COLS.filter(([k]) => !["mode", "h8_hours"].includes(k))
   .map(([k, t]) => [k, k === "hold" ? "Giữ (phút)" : t]);
-const fVal = (r, k) => (k === "n_sl" ? r.n_sl + (r.n_liq || 0) : r[k]);
+const fVal = (r, k) => (k === "n_sl" ? r.n_sl + (r.n_liq || 0) : (k in r ? r[k] : (r.values || {})[k]));
 const fNum = (s) => { const t = String(s ?? "").trim().replace(/\s/g, "").replace(",", "."); return t === "" ? null : Number(t); };
 function fTest(c, r) {
+  const x = fVal(r, c.k);
+  if (typeof x === "string") {                                    // cột chữ: 1m / up / close…
+    const t = String(c.v ?? "").trim().toLowerCase();
+    if (!t) return true;
+    const eq = x.toLowerCase() === t;
+    return c.op === "!=" ? !eq : c.op === "=" ? eq : x.toLowerCase().includes(t);
+  }
   const a = fNum(c.v), b = fNum(c.v2);
   if (a === null || Number.isNaN(a)) return true;                 // chưa nhập / nhập sai -> bỏ qua điều kiện
-  const x = fVal(r, c.k);
   if (x === null || x === undefined || Number.isNaN(x)) return false;   // ô trống (lượt chạy cũ) không khớp
   const eq = Math.abs(x - a) <= 1e-9 * Math.max(1, Math.abs(a));
   switch (c.op) {
@@ -712,7 +726,7 @@ function renderTable() {
   if (fav) rows = rows.filter((r) => favGroupsOf(r).some((g) => FAVSEL.has(g)));
   if (FCONDS.length) rows = rows.filter((r) => FCONDS.every((c) => fTest(c, r)));
   $("fCount").textContent = FCONDS.length || fav ? `${rows.length.toLocaleString("vi-VN")} / ${total.toLocaleString("vi-VN")} cấu hình khớp lọc` : "";
-  rows.sort((a, b) => ((a[SORT.k] > b[SORT.k]) - (a[SORT.k] < b[SORT.k])) * SORT.d);
+  rows.sort((a, b) => { const x = fVal(a, SORT.k), y = fVal(b, SORT.k); return ((x > y) - (x < y)) * SORT.d; });
   const act = rows.filter((r) => r.isActual);
   rows = rows.slice(0, top);
   for (const r of act) if (!rows.includes(r)) rows.push(r);
@@ -727,7 +741,7 @@ function renderTable() {
     }).join("")}</tr>`).join("")}</tbody>`;
   pinGrid();
 }
-const PIN_COLS = 4;                     // số cột đầu của COLS được neo (Chế độ, TP %, SL %, Giữ)
+let PIN_COLS = 4;                       // số cột đầu của COLS được neo (Chế độ, TP %, SL %, Giữ + tham số quét thêm)
 function pinGrid() {
   if ($("tab-table").hidden) return;            // đang ẩn: không đo được, đo lại khi mở tab
   // vị trí left của từng cột neo = tổng bề rộng các cột neo đứng trước (đo trên hàng tiêu đề)
