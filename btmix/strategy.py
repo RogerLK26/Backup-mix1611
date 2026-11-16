@@ -33,18 +33,30 @@ from backtester.utils import MIN_MS, log
 from replay.engine import stability_block
 
 # lý do bỏ tín hiệu không phụ thuộc cấu hình (lọc coin / thiếu dữ liệu) – không tính vào cột "Bỏ" của bảng xếp hạng
-STATIC_REJECTS = ("market_cap", "max_leverage", "no_data", "pullback_timeout", "volume", "excluded")
+STATIC_REJECTS = ("market_cap", "max_leverage", "no_data", "no_pullback", "outside_period")
 REJECT_LABELS = {
-    "market_cap": "Vốn hoá ngoài khoảng", "max_leverage": "Đòn bẩy tối đa của sàn thấp hơn mức yêu cầu",
-    "no_data": "Không có dữ liệu giá", "pullback_timeout": "Không hồi đủ trong thời gian theo dõi",
-    "volume": "Volume 24h không đạt", "excluded": "Coin bị loại",
-    "max_open_positions": "Đã đủ lệnh mở đồng thời", "max_open_per_coin": "Đã đủ lệnh mở trên coin đó",
-    "max_trades_per_day": "Đã đủ lệnh trong ngày", "max_tp_per_day": "Đã đủ TP trong ngày",
-    "max_sl_per_day": "Đã đủ SL trong ngày", "max_tp_per_coin_per_day": "Đã đủ TP của coin trong ngày",
-    "max_sl_per_coin_per_day": "Đã đủ SL của coin trong ngày", "coin_cooldown": "Coin đang nghỉ",
-    "global_sl_cooldown": "Cả chiến lược đang nghỉ sau SL", "consecutive_sl_pause": "Nghỉ sau nhiều SL liên tiếp",
-    "daily_loss_limit": "Chạm giới hạn lỗ ngày", "balance": "Không đủ số dư", "session": "Ngoài khung giờ",
-    "weekday": "Ngoài ngày trong tuần", "max_runtime": "Quá thời gian chạy tối đa",
+    # lọc trước khi vào sổ lệnh (không phụ thuộc cấu hình trong lưới)
+    "market_cap": "Vốn hoá ngoài khoảng cho phép",
+    "max_leverage": "Đòn bẩy tối đa của sàn thấp hơn mức yêu cầu",
+    "no_data": "Không có dữ liệu giá tại thời điểm vào lệnh",
+    "no_pullback": "Giá không hồi đủ trong thời gian theo dõi",
+    "outside_period": "Ngoài giai đoạn backtest",
+    # giới hạn rủi ro / lịch chạy – phụ thuộc cấu hình, đếm trên mọi cấu hình trong lưới
+    "session": "Ngoài khung giờ đã đặt",
+    "weekday": "Ngoài ngày trong tuần đã chọn",
+    "max_runtime": "Quá thời gian chạy tối đa mỗi ngày",
+    "daily_max_trades": "Đã đủ số lệnh trong ngày",
+    "daily_max_tp": "Đã đủ số TP trong ngày",
+    "daily_max_sl": "Đã đủ số SL trong ngày",
+    "daily_loss_limit": "Chạm giới hạn lỗ trong ngày",
+    "coin_cooldown": "Coin đang nghỉ sau lệnh trước",
+    "coin_max_tp": "Coin đã đủ TP trong ngày",
+    "coin_max_sl": "Coin đã đủ SL trong ngày",
+    "coin_position_open": "Coin đang có lệnh mở (đủ số lệnh/coin)",
+    "max_open_positions": "Đã đủ số lệnh mở đồng thời",
+    "insufficient_balance": "Không đủ số dư để vào lệnh",
+    "global_sl_cooldown": "Cả chiến lược đang nghỉ sau SL",
+    "consecutive_sl_pause": "Đang nghỉ sau nhiều SL liên tiếp",
 }
 TOP_HOURS_K = 8
 

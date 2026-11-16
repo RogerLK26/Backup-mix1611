@@ -26,7 +26,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backtester.config import TIMEFRAMES, build_config, load_raw
 from backtester.data import EXCHANGES, cache_admin, get_exchange
-from backtester.optimize import LABELS, OBJECTIVES, describe as describe_sweep
+from backtester.optimize import LABELS, OBJECTIVES, Grid, describe as describe_sweep
 from backtester.utils import data_path, log, mem_usage, release_memory
 
 from replay.actual import detect_exchange, load_actual, summarize_actual
@@ -35,6 +35,7 @@ from replay.runner import guess_actual
 
 from . import history
 from .jobs import RUNNER, _clean, payload, resolve_actual
+from .strategy import _base_with_axis
 
 STATIC = Path(__file__).parent / "static"
 REPO_CONFIGS = Path(__file__).resolve().parents[1] / "configs"
@@ -230,8 +231,14 @@ def yaml_parse(body: dict = Body(...)):
 def validate(body: dict = Body(...)):
     raw, exchanges = body.get("config") or {}, body.get("exchanges") or []
     try:
-        for e in exchanges or [raw.get("exchange", "binance")]:
-            build_config(dict(raw, exchange=e), get_exchange(e).default_fees)
+        base = raw
+        if raw.get("sweep"):
+            # TP/SL/giữ lệnh có thể chỉ nằm trong lưới -> điền giá trị đầu tiên như lúc chạy thật
+            base = _base_with_axis({k: v for k, v in raw.items() if k not in ("sweep", "optimize")}, Grid(raw))
+        for e in exchanges or [str(raw.get("exchange", "binance"))]:
+            if isinstance(e, (list, tuple)):
+                e = e[0]
+            build_config(dict(base, exchange=e), get_exchange(e).default_fees)
         sweep = describe_sweep(raw) if raw.get("sweep") else None
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": str(e)}

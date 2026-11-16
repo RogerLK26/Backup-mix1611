@@ -28,23 +28,30 @@ Nút chuyển ở góc trên bên phải.
 "Coin biến động x% trong nến 1m/3m/5m/… → vào lệnh Long/Short" trên **Binance, Bybit, OKX, Bitget, Gate, MEXC**, mô phỏng
 khớp lệnh tới **từng giao dịch (tick, mili-giây)** nên TP/SL xảy ra dưới 1 phút vẫn chính xác.
 
-Form cấu hình đủ như bản gốc, chia theo mục:
+Form cấu hình chia làm 2 phần: **Cơ bản** (nhìn hết trong một màn, đủ để chạy) và **Nâng cao** (phần còn lại, mỗi
+nhóm báo rõ đang đặt khác mặc định mấy mục nên không sợ quên).
 
-1. **Chiến lược, sàn & giai đoạn** – tên, nhiều sàn cùng lúc, từ/đến, múi giờ, vốn ban đầu, độ phân giải (tick / 1m), cách
-   mô phỏng khi chỉ có nến 1m.
-2. **Lọc coin** – chỉ chạy / loại trừ coin, volume 24h (rolling, đúng tới phút có tín hiệu), vốn hoá (CoinGecko), đòn bẩy tối
-   đa sàn cho phép.
-3. **Tín hiệu** – nhiều rule (HOẶC): khung nến, biến động ≥ (và ≤), chiều, kích hoạt chạm/đóng nến, vào lệnh thuận/ngược,
-   **chờ giá hồi** (hồi x% từ đỉnh trong y phút).
-4. **Vào lệnh & vị thế** – độ trễ bot (ms), trượt giá, ký quỹ (USDT hoặc % số dư), đòn bẩy.
-5. **Thoát lệnh & phí** – TP/SL theo % giá hoặc % ROE, lệnh TP limit/market, cách khớp limit, trượt giá SL / đóng hết giờ,
-   thanh lý isolated, phí maker/taker, funding thật.
-6. **Giới hạn rủi ro** – lệnh mở đồng thời, lệnh/coin, max lệnh–TP–SL mỗi ngày (và mỗi coin mỗi ngày), nghỉ coin sau TP/SL,
-   nghỉ cả chiến lược sau SL / sau N SL liên tiếp, giới hạn lỗ ngày, thời gian chạy tối đa, giờ bắt đầu ngày.
-7. **Lịch chạy** – khung giờ vào lệnh (hỗ trợ qua đêm `22:00-02:00`), ngày trong tuần.
-8. **Lưới cấu hình & xếp hạng** – TP / SL / thời gian giữ lệnh dạng danh sách `1, 1.5, 2` hoặc khoảng `0.5-3:0.25`; quét thêm
-   tham số khác (đòn bẩy, biến động tín hiệu, giới hạn…); tiêu chí xếp hạng, bỏ qua cấu hình ít lệnh / sụt vốn quá mức,
-   kiểm tra ngoài mẫu, số cấu hình tối đa.
+**Cơ bản**
+
+| Mục | Nội dung |
+|---|---|
+| Sàn | Bấm chọn 1 hoặc nhiều sàn (mỗi sàn chạy riêng, thành một dòng để so trong bảng xếp hạng) |
+| Giai đoạn | Từ – đến, kèm nút nhanh 7 / 14 / 30 / 90 ngày |
+| Tín hiệu | Viết thành câu: *Khi giá **tăng** ≥ **3**% trong nến **5m** → vào lệnh **ngược chiều***. Nút ⚙ mở thêm: biến động tối đa, kích hoạt khi chạm hay khi nến đóng, **chờ giá hồi** x% trong y phút. Nhiều tín hiệu = HOẶC |
+| Vốn mỗi lệnh | Ký quỹ (USDT hoặc % số dư) và đòn bẩy |
+| Lưới cấu hình | TP / SL / thời gian giữ lệnh – danh sách `1, 1.5, 2` hoặc khoảng `0.5-3:0.25`; nút Nhanh / Rộng / Chỉ quét TP |
+
+Thanh chạy **dính đáy màn hình**: luôn thấy tóm tắt (sàn · giai đoạn · tín hiệu · số cấu hình), báo lỗi cấu hình ngay
+khi nhập (không phải bấm Chạy mới biết), tiến trình và nút Chạy / Huỷ.
+
+**Nâng cao** – gồm các nhóm: *Lọc coin* (volume 24h rolling, vốn hoá CoinGecko, đòn bẩy tối đa sàn cho phép, chỉ chạy /
+loại trừ coin) · *Vào lệnh* (độ trễ bot, trượt giá) · *Thoát lệnh & phí* (TP/SL theo % giá hay % ROE, lệnh TP limit/market,
+cách khớp, trượt giá SL và đóng hết giờ, phí maker/taker, funding thật, thanh lý isolated) · *Giới hạn rủi ro* (lệnh mở
+đồng thời, lệnh/coin, max lệnh–TP–SL mỗi ngày và mỗi coin mỗi ngày, nghỉ coin sau TP/SL, nghỉ cả chiến lược sau SL hoặc
+sau N SL liên tiếp, giới hạn lỗ ngày, thời gian chạy tối đa, giờ bắt đầu ngày) · *Lịch chạy* (khung giờ vào lệnh, hỗ trợ
+qua đêm `22:00-02:00`; ngày trong tuần) · *Xếp hạng & kiểm tra ngoài mẫu* (tiêu chí xếp hạng, bỏ qua cấu hình ít lệnh /
+sụt vốn quá mức, % cuối giai đoạn để kiểm tra ngoài mẫu, số cấu hình tối đa, quét thêm tham số khác) · *Dữ liệu & thông
+tin chung* (tên, múi giờ, vốn ban đầu, độ phân giải tick/1m, cách mô phỏng trong nến 1m, số luồng tải).
 
 Cấu hình lưu thành file YAML trong `configs/` (Lưu / Lưu thành mới / Xoá / Xuất – Nhập YAML), bản nháp tự lưu trên trình duyệt.
 

@@ -33,68 +33,56 @@
       <label class="btn small ghost upl">Nhập YAML…<input type="file" id="yamlIn" accept=".yaml,.yml" hidden></label>
     </div>
 
-    <div class="card"><h3>Sàn chạy backtest</h3>
-      <div id="exchanges" class="chkrow"></div>
-      <p class="hint">Chọn nhiều sàn: mỗi sàn chạy riêng và là một dòng "chế độ" trong bảng xếp hạng để so sánh với nhau.
-        Binance/Bybit chặn IP Mỹ – nếu deploy, chọn region Singapore hoặc châu Âu.</p>
-    </div>
+    <div class="card basic">
+      <div class="bgroup">
+        <div class="blabel">Sàn</div>
+        <div id="exchanges" class="chips"></div>
+      </div>
 
-    <div class="card" id="sec_chung"></div>
-    <div class="card" id="sec_coin"></div>
-
-    <div class="card">
-      <details class="sec" open><summary>3. Tín hiệu vào lệnh <span class="muted">(nhiều tín hiệu = HOẶC)</span></summary>
-        <div id="signals"></div>
-        <div class="row"><button class="btn small ghost" id="sigAdd">+ Thêm tín hiệu</button></div>
-        <p class="hint">Ví dụ: khung <b>5m</b>, biến động <b>≥ 3%</b>, chiều <b>Tăng</b>, kích hoạt <b>Chạm ngưỡng</b>, vào lệnh <b>Ngược chiều</b>
-          = coin tăng 3% trong nến 5 phút thì Short ngay lúc chạm. <b>Chờ hồi</b>: sau khi có tín hiệu, chỉ vào lệnh khi giá hồi x% từ đỉnh/đáy
-          trong khoảng thời gian theo dõi.</p>
-      </details>
-    </div>
-
-    <div class="card" id="sec_entry"></div>
-    <div class="card" id="sec_exit"></div>
-    <div class="card" id="sec_limits"></div>
-
-    <div class="card">
-      <details class="sec"><summary>7. Lịch chạy</summary>
-        <div class="grid">
-          <div class="fld w2"><label for="f_schedule_sessions">Khung giờ vào lệnh</label>
-            <input type="text" id="f_schedule_sessions" placeholder="00:00-24:00, 22:00-02:00">
-            <div class="hint">Nhiều khoảng cách nhau dấu phẩy; hỗ trợ khung qua đêm.</div></div>
-          <div class="fld w2"><label>Ngày trong tuần</label><div id="weekdays" class="chkrow"></div></div>
+      <div class="bgroup">
+        <div class="blabel">Giai đoạn</div>
+        <div class="row">
+          <input type="text" id="btStart" class="dt" placeholder="2026-11-01 00:00">
+          <span class="muted">→</span>
+          <input type="text" id="btEnd" class="dt" placeholder="2026-11-08 00:00">
+          <button class="btn small ghost" data-range="7">7 ngày</button>
+          <button class="btn small ghost" data-range="14">14 ngày</button>
+          <button class="btn small ghost" data-range="30">30 ngày</button>
+          <button class="btn small ghost" data-range="90">90 ngày</button>
         </div>
-      </details>
-    </div>
+      </div>
 
-    <div class="card">
-      <details class="sec" open><summary>8. Lưới cấu hình & xếp hạng</summary>
+      <div class="bgroup">
+        <div class="blabel">Tín hiệu vào lệnh <span class="muted">nhiều tín hiệu = HOẶC</span></div>
+        <div id="signals"></div>
+        <button class="btn small ghost" id="sigAdd">+ Thêm tín hiệu</button>
+      </div>
+
+      <div class="bgroup">
+        <div class="blabel">Vốn mỗi lệnh</div>
+        <div id="btBasic" class="grid"></div>
+      </div>
+
+      <div class="bgroup">
+        <div class="blabel">Lưới cấu hình muốn thử <span class="muted">danh sách <code>1, 1.5, 2</code> · khoảng <code>0.5-3:0.25</code> · thời gian <code>30m, 2h</code></span></div>
         <div class="grid">
           <div class="fld"><label for="swTp">Chốt lời TP (%)</label><input id="swTp" placeholder="0.5-3:0.25"></div>
-          <div class="fld"><label for="swSl">Cắt lỗ SL (%)</label><input id="swSl" placeholder="2, 3, 5, 10"></div>
+          <div class="fld"><label for="swSl">Cắt lỗ SL (%)</label><input id="swSl" placeholder="2, 3, 5, 10 (0 = không SL)"></div>
           <div class="fld"><label for="swHold">Giữ tối đa</label><input id="swHold" placeholder="30m, 1h, 2h (0 = không giới hạn)"></div>
         </div>
-        <div class="row">
+        <div class="row" style="margin-top:8px">
           <button class="btn small ghost" data-gridpreset="quick">Nhanh</button>
           <button class="btn small ghost" data-gridpreset="wide">Rộng</button>
           <button class="btn small ghost" data-gridpreset="tp">Chỉ quét TP</button>
-          <span id="btComboCount" class="muted"></span>
+          <span id="btCombo" class="muted"></span>
         </div>
-        <p class="hint">Danh sách: <code>1, 1.5, 2</code> · Khoảng: <code>0.5-3:0.25</code> (từ-đến:bước) · Thời gian: <code>30m, 2h</code>.
-          TP/SL/giữ lệnh dùng engine nhanh (tính trước điểm thoát một lần cho mọi tổ hợp).</p>
-        <div id="extraSweep"></div>
-        <div class="row"><button class="btn small ghost" id="xAdd">+ Quét thêm tham số khác</button>
-          <span class="muted">(đòn bẩy, biến động tín hiệu, giới hạn… – mỗi giá trị phải quét lại tín hiệu nên chậm hơn)</span></div>
-        <div class="grid" style="margin-top:10px">
-          <div class="fld"><label for="objective">Xếp hạng theo</label><select id="objective"></select></div>
-          <div class="fld"><label for="objective2">Tiêu chí thứ 2</label><select id="objective2"></select></div>
-          <div class="fld"><label for="minTrades">Bỏ qua cấu hình ít hơn … lệnh</label><input type="number" id="minTrades" value="10"></div>
-          <div class="fld"><label for="maxDd">Bỏ qua nếu sụt vốn quá (%)</label><input type="number" id="maxDd" step="any" placeholder="không giới hạn"></div>
-          <div class="fld"><label for="oosPct">Kiểm tra ngoài mẫu (% cuối giai đoạn)</label><input type="number" id="oosPct" value="0"></div>
-          <div class="fld"><label for="maxCombos">Số cấu hình tối đa</label><input type="number" id="maxCombos" value="20000"></div>
-        </div>
-      </details>
+      </div>
+
+      <div class="advbar"><button class="btn small ghost" id="advToggle">Tuỳ chọn nâng cao…</button>
+        <span class="muted">lọc coin, phí &amp; khớp lệnh, giới hạn rủi ro, lịch chạy, xếp hạng, dữ liệu</span></div>
     </div>
+
+    <div id="btAdvanced" hidden></div>
   </div>
 
   <!-- ============================================================ chế độ 2: replay lệnh thật (nguyên bản) -->
@@ -203,10 +191,14 @@
   </div>
   </div>
 
-  <div class="runbar">
-    <button id="runBtn" class="btn primary">Chạy backtest</button>
+  <div class="runbar sticky">
+    <div class="runinfo">
+      <div id="btSummary" class="formbt"></div>
+      <div id="btError" hidden></div>
+      <div class="prog" id="prog" hidden><div class="bar"><div id="progBar"></div></div><span id="progText"></span></div>
+    </div>
     <button id="cancelBtn" class="btn ghost" hidden>Huỷ</button>
-    <div class="prog" id="prog" hidden><div class="bar"><div id="progBar"></div></div><span id="progText"></span></div>
+    <button id="runBtn" class="btn primary">Chạy backtest</button>
   </div>
   <div id="queue" class="queue" hidden></div>
   <pre id="log" class="log" hidden></pre>

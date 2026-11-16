@@ -1172,7 +1172,10 @@ function setMode(m) {
   document.querySelectorAll("[data-setmode]").forEach((b) => b.classList.toggle("active", b.dataset.setmode === MODE));
   $("btForm").hidden = MODE !== "bt";
   $("replayForm").hidden = MODE !== "replay";
+  // phần tóm tắt / báo lỗi của thanh chạy chỉ dành cho form backtest
+  document.querySelectorAll(".formbt").forEach((x) => (x.hidden = MODE !== "bt"));
   $("runBtn").textContent = MODE === "bt" ? "Chạy backtest" : "Chạy replay";
+  if (MODE === "bt" && typeof changed === "function" && META) changed();
 }
 document.querySelectorAll("[data-setmode]").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.setmode)));
 $("queue").addEventListener("click", async (e) => {
