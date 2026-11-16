@@ -154,3 +154,17 @@ def test_grid_accepts_range_text(prepared):
     r.execute()
     assert len(r.rows) == 2 * 2 * 2
     assert sorted({row["tp"] for row in r.rows}) == [0.5, 1.0]
+
+
+def test_sweep_signal_params(prepared):
+    """Lưới quét được cả tham số tín hiệu (khung nến, biến động %) chứ không chỉ TP/SL/giữ lệnh."""
+    raw = dict(RAW, sweep={"exit.take_profit": "1", "exit.stop_loss": "3",
+                           "signals.0.timeframe": "1m, 5m", "signals.0.change_pct": "3, 4"})
+    r = BtRun(raw, "binance", prepared=prepared)
+    r.execute()
+    assert len(r.rows) == 4
+    # mỗi tổ hợp tín hiệu cho tập lệnh khác nhau -> số lệnh không giống hệt nhau
+    assert len({row["n"] for row in r.rows}) > 1
+    # nhãn tiếng Việt, không phải khoá YAML
+    assert "Khung nến (tín hiệu 1)" in r.rows[0]["params"]
+    assert r.summary["labels"][-2:] == ["Khung nến (tín hiệu 1)", "Biến động (tín hiệu 1)"]

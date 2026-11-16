@@ -90,7 +90,6 @@ const GROUPS = [
       { k: "optimize.max_combos", label: "Số cấu hình tối đa", type: "num",
         hint: "lưới lớn hơn thì bot tìm kiếm thông minh", d: 20000 },
     ],
-    extra: true,
   },
   {
     id: "data", title: "Dữ liệu & thông tin chung", fields: [
@@ -141,9 +140,6 @@ function groupHtml(g) {
     ${g.hint ? `<p class="hint">${esc(g.hint)}</p>` : ""}
     <div class="grid">${g.fields.map(fieldHtml).join("")}</div>
     ${g.weekdays ? `<div class="fld" style="margin-top:8px"><label>Ngày trong tuần</label><div id="weekdays" class="chkrow"></div></div>` : ""}
-    ${g.extra ? `<div class="xtra"><div id="extraSweep"></div>
-      <button class="btn small ghost" id="xAdd">+ Quét thêm tham số khác</button>
-      <span class="muted">đòn bẩy, biến động tín hiệu, giới hạn… – mỗi giá trị phải quét lại tín hiệu nên chậm hơn</span></div>` : ""}
   </details>`;
 }
 
@@ -233,20 +229,57 @@ const signalTxt = (s) => `${s.timeframe} ${{ up: "tăng", down: "giảm", both: 
   ` → ${{ reverse: "ngược", follow: "thuận", long: "Long", short: "Short" }[s.side] || s.side}`;
 
 // ---------------------------------------------------------------- lưới quét thêm tham số
-const SWEEPABLE = [
-  ["position.leverage", "Đòn bẩy"], ["position.margin", "Ký quỹ"], ["entry.latency_ms", "Độ trễ (ms)"],
-  ["entry.slippage_pct", "Trượt giá vào (%)"], ["signals.0.change_pct", "Tín hiệu 1 – biến động (%)"],
-  ["signals.1.change_pct", "Tín hiệu 2 – biến động (%)"], ["signals.0.pullback_pct", "Tín hiệu 1 – hồi (%)"],
-  ["signals.0.pullback_window", "Tín hiệu 1 – theo dõi hồi"], ["limits.max_open_positions", "Lệnh mở đồng thời"],
-  ["limits.max_open_per_coin", "Lệnh mở / coin"], ["limits.max_sl_per_day", "Max SL/ngày"],
-  ["limits.cooldown_after_sl_coin", "Nghỉ coin sau SL"], ["limits.cooldown_after_tp_coin", "Nghỉ coin sau TP"],
-  ["limits.cooldown_after_sl_global", "Nghỉ sau SL"], ["limits.day_reset_hour", "Giờ bắt đầu ngày"],
+// Tham số quét thêm: [khoá trong YAML, tên hiện trên giao diện, gợi ý giá trị].
+// Nhóm tín hiệu sinh theo số tín hiệu đang có; mỗi giá trị của nhóm này phải quét lại tín hiệu nên chậm hơn TP/SL/giữ.
+const SIG_SWEEP = [
+  ["timeframe", "Khung nến", "1m, 3m, 5m, 15m, 1h"],
+  ["change_pct", "Biến động ≥ (%)", "2, 3, 4, 5 hoặc 1-5:0.5"],
+  ["max_change_pct", "Biến động tối đa (%)", "5, 10, none"],
+  ["direction", "Chiều biến động", "up, down, both"],
+  ["side", "Vào lệnh", "reverse, follow"],
+  ["trigger", "Kích hoạt", "touch, close"],
+  ["pullback_pct", "Chờ giá hồi (%)", "0.5, 1, 2, none"],
+  ["pullback_window", "Theo dõi hồi", "5m, 10m, 30m"],
 ];
+const OTHER_SWEEP = [
+  ["position.leverage", "Đòn bẩy", "5, 10, 20"],
+  ["position.margin", "Ký quỹ mỗi lệnh", "5, 10, 20"],
+  ["entry.latency_ms", "Độ trễ bot (ms)", "0, 200, 500"],
+  ["entry.slippage_pct", "Trượt giá vào (%)", "0, 0.05, 0.1"],
+  ["exit.tp_order", "Lệnh chốt lời", "limit, market"],
+  ["exit.sl_slippage_pct", "Trượt giá SL (%)", "0, 0.1, 0.5"],
+  ["universe.min_volume_24h", "Volume 24h ≥", "1000000, 5000000"],
+  ["universe.min_max_leverage", "Đòn bẩy sàn cho phép ≥", "20, 50"],
+  ["limits.max_open_positions", "Lệnh mở đồng thời", "3, 5, 10"],
+  ["limits.max_open_per_coin", "Lệnh mở / coin", "1, 2"],
+  ["limits.max_trades_per_day", "Lệnh / ngày", "5, 10, none"],
+  ["limits.max_sl_per_day", "Max SL / ngày", "2, 3, none"],
+  ["limits.max_tp_per_day", "Max TP / ngày", "2, 3, none"],
+  ["limits.cooldown_after_sl_coin", "Nghỉ coin sau SL", "0, 10m, 30m"],
+  ["limits.cooldown_after_tp_coin", "Nghỉ coin sau TP", "0, 10m, 30m"],
+  ["limits.cooldown_after_trade_coin", "Nghỉ coin sau mọi lệnh", "0, 10m, 30m"],
+  ["limits.cooldown_after_sl_global", "Nghỉ cả chiến lược sau SL", "0, 30m, 2h"],
+  ["limits.daily_loss_limit", "Giới hạn lỗ / ngày", "50, 100, none"],
+  ["limits.day_reset_hour", "Giờ bắt đầu ngày", "0, 7"],
+];
+function sweepable() {
+  const n = Math.max(1, document.querySelectorAll("#signals .sigrow").length || SIGNALS.length || 1);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    for (const [f, label, ph] of SIG_SWEEP) {
+      out.push([`signals.${i}.${f}`, n > 1 ? `${label} – tín hiệu ${i + 1}` : label, ph]);
+    }
+  }
+  return out.concat(OTHER_SWEEP);
+}
+const sweepPh = (k) => (sweepable().find(([key]) => key === k) || [])[2] || "3, 5, 10 hoặc 1-10:1";
 function renderExtraSweep() {
+  const opts = sweepable();
   $("extraSweep").innerHTML = EXTRA_SWEEP.map((x, i) => `<div class="xrow" data-i="${i}">
-    <select data-x="k">${SWEEPABLE.map(([v, t]) => `<option value="${esc(v)}"${x.k === v ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>
-    <input type="text" data-x="v" value="${esc(x.v || "")}" placeholder="3, 5, 10 hoặc 1-10:1">
+    <select data-x="k">${opts.map(([v, t]) => `<option value="${esc(v)}"${x.k === v ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>
+    <input type="text" data-x="v" value="${esc(x.v || "")}" placeholder="${esc(sweepPh(x.k))}">
     <button class="btn small ghost danger xdel" title="Bỏ tham số">✕</button></div>`).join("");
+  if ($("xHint")) $("xHint").hidden = !EXTRA_SWEEP.length;
 }
 const readExtraRows = () => [...document.querySelectorAll("#extraSweep .xrow")].map((r) => ({
   k: r.querySelector('[data-x="k"]').value, v: r.querySelector('[data-x="v"]').value }));
@@ -479,13 +512,23 @@ async function initConfig() {
     SIGNALS.push({ ...(SIGNALS[SIGNALS.length - 1] || DEF_SIGNAL) });
     renderSignals(); changed();
   });
-  $("btAdvanced").addEventListener("click", (e) => {
-    if (e.target.id === "xAdd") { EXTRA_SWEEP = readExtraRows(); EXTRA_SWEEP.push({ k: SWEEPABLE[0][0], v: "" }); renderExtraSweep(); }
-    else if (e.target.classList.contains("xdel")) {
-      EXTRA_SWEEP = readExtraRows();
-      EXTRA_SWEEP.splice(+e.target.closest(".xrow").dataset.i, 1);
-      renderExtraSweep(); changed();
-    }
+  $("xAdd").addEventListener("click", () => {
+    EXTRA_SWEEP = readExtraRows();
+    const used = new Set(EXTRA_SWEEP.map((x) => x.k));
+    const next = sweepable().find(([k]) => !used.has(k)) || sweepable()[0];
+    EXTRA_SWEEP.push({ k: next[0], v: "" });
+    renderExtraSweep(); changed();
+  });
+  $("extraSweep").addEventListener("click", (e) => {
+    if (!e.target.classList.contains("xdel")) return;
+    EXTRA_SWEEP = readExtraRows();
+    EXTRA_SWEEP.splice(+e.target.closest(".xrow").dataset.i, 1);
+    renderExtraSweep(); changed();
+  });
+  $("extraSweep").addEventListener("change", (e) => {     // đổi tham số -> đổi luôn gợi ý giá trị mẫu
+    if (e.target.dataset.x !== "k") return;
+    const inp = e.target.closest(".xrow").querySelector("[data-x=v]");
+    if (inp) inp.placeholder = sweepPh(e.target.value);
   });
   $("preset").addEventListener("change", (e) => openPreset(e.target.value));
   $("presetSave").addEventListener("click", () => savePreset(false));

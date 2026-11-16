@@ -39,7 +39,7 @@ nhóm báo rõ đang đặt khác mặc định mấy mục nên không sợ qu�
 | Giai đoạn | Từ – đến, kèm nút nhanh 7 / 14 / 30 / 90 ngày |
 | Tín hiệu | Viết thành câu: *Khi giá **tăng** ≥ **3**% trong nến **5m** → vào lệnh **ngược chiều***. Nút ⚙ mở thêm: biến động tối đa, kích hoạt khi chạm hay khi nến đóng, **chờ giá hồi** x% trong y phút. Nhiều tín hiệu = HOẶC |
 | Vốn mỗi lệnh | Ký quỹ (USDT hoặc % số dư) và đòn bẩy |
-| Lưới cấu hình | TP / SL / thời gian giữ lệnh – danh sách `1, 1.5, 2`, khoảng `0.5-3:0.25` (từ-đến:bước), thời gian `30m, 1h-4h:1h`, trộn được cả hai; `0` = không đặt (SL) / không giới hạn (giữ lệnh); để trống một ô = không quét tham số đó. Nút Nhanh / Rộng / Chỉ quét TP |
+| Lưới cấu hình | TP / SL / thời gian giữ lệnh – danh sách `1, 1.5, 2`, khoảng `0.5-3:0.25` (từ-đến:bước), thời gian `30m, 1h-4h:1h`, trộn được cả hai; `0` = không đặt (SL) / không giới hạn (giữ lệnh); để trống một ô = không quét tham số đó. Nút Nhanh / Rộng / Chỉ quét TP. **+ Quét thêm tham số**: khung nến, biến động ≥ %, biến động tối đa, chiều, vào lệnh thuận/ngược, kích hoạt, chờ hồi % và thời gian theo dõi (cho từng tín hiệu), đòn bẩy, ký quỹ, độ trễ, trượt giá, volume 24h, đòn bẩy sàn, và các giới hạn rủi ro – ghi `none` để thử cả trường hợp không đặt |
 
 Thanh chạy **dính đáy màn hình**: luôn thấy tóm tắt (sàn · giai đoạn · tín hiệu · số cấu hình), báo lỗi cấu hình ngay
 khi nhập (không phải bấm Chạy mới biết), tiến trình và nút Chạy / Huỷ.

@@ -62,6 +62,33 @@ REJECT_LABELS = {
 }
 TOP_HOURS_K = 8
 
+# nhãn tiếng Việt cho các tham số quét thêm (bản gốc chỉ đặt tên sẵn cho một số khoá)
+SIG_LABELS = {"timeframe": "Khung nến", "change_pct": "Biến động", "max_change_pct": "Biến động tối đa",
+              "direction": "Chiều biến động", "side": "Vào lệnh", "trigger": "Kích hoạt",
+              "pullback_pct": "Hồi từ đỉnh", "pullback_window": "Theo dõi hồi"}
+OTHER_LABELS = {"position.leverage": "Đòn bẩy", "position.margin": "Ký quỹ", "entry.latency_ms": "Độ trễ (ms)",
+                "entry.slippage_pct": "Trượt giá vào (%)", "exit.tp_order": "Lệnh chốt lời",
+                "exit.sl_slippage_pct": "Trượt giá SL (%)", "limits.max_open_positions": "Lệnh mở đồng thời",
+                "limits.max_open_per_coin": "Lệnh mở / coin", "limits.max_trades_per_day": "Lệnh / ngày",
+                "limits.max_sl_per_day": "Max SL/ngày", "limits.max_tp_per_day": "Max TP/ngày",
+                "limits.cooldown_after_sl_coin": "Nghỉ coin sau SL", "limits.cooldown_after_tp_coin": "Nghỉ coin sau TP",
+                "limits.cooldown_after_trade_coin": "Nghỉ coin sau lệnh", "limits.cooldown_after_sl_global": "Nghỉ sau SL",
+                "limits.daily_loss_limit": "Giới hạn lỗ/ngày", "limits.day_reset_hour": "Giờ bắt đầu ngày",
+                "universe.min_volume_24h": "Volume 24h ≥", "universe.min_max_leverage": "Đòn bẩy sàn ≥"}
+
+
+def param_label(key: str) -> str:
+    m = re.match(r"^signals\.(\d+)\.(\w+)$", key)
+    if m:
+        name = SIG_LABELS.get(m.group(2), m.group(2))
+        return f"{name} (tín hiệu {int(m.group(1)) + 1})"
+    return LABELS.get(key) or OTHER_LABELS.get(key) or key
+
+
+def combo_label(keys, combo, unit: str) -> str:
+    return " · ".join(f"{param_label(k)} {fmt_value(k, v, unit)}" for k, v in zip(keys, combo))
+
+
 # "từ-đến:bước" viết thẳng trong ô nhập (cú pháp của chế độ replay) – engine gốc chỉ hiểu danh sách hoặc {from,to,step}
 _RANGE = re.compile(r"^([\d.]+\s*[a-zA-Z]*)\s*-\s*([\d.]+\s*[a-zA-Z]*)\s*:\s*([\d.]+\s*[a-zA-Z]*)$")
 _ZERO_IS_NONE = ("exit.take_profit", "exit.stop_loss")
@@ -283,7 +310,7 @@ class BtRun:
             "start": self.raw.get("start"), "end": self.raw.get("end"),
             "unit": self.unit,
             "keys": grid.keys,
-            "labels": [LABELS.get(k, k) for k in grid.keys],
+            "labels": [param_label(k) for k in grid.keys],
             "objective": grid.objective, "objective_label": OBJECTIVES[grid.objective],
             "n_combos": len(rows), "grid_total": grid.total, "grid_mode": grid.mode,
             "n_signals": n_sig,
@@ -346,7 +373,7 @@ class BtRun:
         row["sl"] = _axis_value(self, vals, "exit.stop_loss", cfg.stop_loss)
         hold = vals.get("exit.max_hold", cfg.max_hold_ms)
         row["hold"] = _hold_min(hold)
-        row["params"] = grid.label(combo, self.unit)
+        row["params"] = combo_label(grid.keys, combo, self.unit)
         row["values"] = {k: (None if v is None else (v if isinstance(v, (int, float)) else str(v)))
                          for k, v in vals.items()}
         row["labels"] = {k: fmt_value(k, v, self.unit) for k, v in vals.items()}
