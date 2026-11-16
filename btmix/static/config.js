@@ -188,15 +188,15 @@ function signalHtml(s, i) {
       ${sel("timeframe", TF, s.timeframe || "5m")}
       <span>→ vào lệnh</span>
       ${sel("side", [["reverse", "ngược chiều"], ["follow", "thuận chiều"], ["long", "Long"], ["short", "Short"]], s.side || "reverse")}
+      ${sel("trigger", [["touch", "ngay khi chạm ngưỡng"], ["close", "khi nến đóng"]], s.trigger || "touch")}
       <span class="spacer"></span>
-      <button class="btn small ghost sigmore" title="Thêm điều kiện cho tín hiệu này">⚙ Thêm điều kiện</button>
+      <button class="btn small ghost sigmore" title="Biến động tối đa, chờ giá hồi">⚙ Lọc thêm</button>
       <button class="btn small ghost danger sigdel" title="Xoá tín hiệu">✕</button>
     </div>
     <div class="sigmore-box"${open ? "" : " hidden"}>
       <div class="grid">
         <div class="fld"><label>Biến động tối đa (%)</label><input type="number" step="any" data-s="max_change_pct"
           value="${s.max_change_pct ?? ""}" placeholder="không giới hạn"></div>
-        <div class="fld"><label>Kích hoạt</label>${sel("trigger", [["touch", "Ngay khi chạm ngưỡng"], ["close", "Khi nến đóng"]], s.trigger || "touch")}</div>
         <div class="fld"><label>Chờ giá hồi (%)</label><input type="number" step="any" data-s="pullback_pct"
           value="${s.pullback_pct ?? ""}" placeholder="không chờ"></div>
         <div class="fld"><label>Theo dõi hồi trong</label><input type="text" data-s="pullback_window"
@@ -226,6 +226,7 @@ const cleanSignal = (s) => {
   return o;
 };
 const signalTxt = (s) => `${s.timeframe} ${{ up: "tăng", down: "giảm", both: "±" }[s.direction] || ""} ≥${s.change_pct}%` +
+  `${s.trigger === "close" ? " (nến đóng)" : ""}${s.pullback_pct ? ` (hồi ${s.pullback_pct}%)` : ""}` +
   ` → ${{ reverse: "ngược", follow: "thuận", long: "Long", short: "Short" }[s.side] || s.side}`;
 
 // ---------------------------------------------------------------- lưới quét thêm tham số
