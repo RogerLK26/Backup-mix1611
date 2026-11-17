@@ -323,8 +323,14 @@ class BtRun:
         self.rejected: Counter = Counter()
 
     # ------------------------------------------------------------------ chạy lưới
-    def execute(self) -> dict:
-        t0 = time.time()
+    def prepare_ctx(self):
+        """Tải dữ liệu + quét tín hiệu + tính trước điểm thoát, KHÔNG chạy lưới.
+
+        Dùng khi chỉ cần xem chi tiết một cấu hình của lượt chạy cũ (kết quả đã lưu trong lịch sử): trước đây
+        tool chạy lại cả lưới – lượt 56.000 cấu hình mất cả chục phút chỉ để xem một dòng.
+        """
+        if self.ctx is not None:
+            return self.ctx
         grid = self.grid
         base = _base_with_axis({k: v for k, v in self.raw.items() if k not in ("sweep", "optimize")}, grid)
         prepared = self._prepared or prepare(base, self.exchange)
@@ -334,6 +340,18 @@ class BtRun:
         # Kiểm tra ngoài mẫu: xếp hạng trên phần đầu giai đoạn, xem kết quả trên x% cuối (chống quá khớp)
         self.split_t = int(cfg0.end_ms - (cfg0.end_ms - cfg0.start_ms) * grid.oos_pct / 100.0) \
             if grid.oos_pct > 0 else None
+        if not self.combos:                      # danh sách cấu hình theo đúng thứ tự giá trị trong lưới
+            self.combos = [c for c in itertools.product(*grid.values) if self._valid(c)]
+            self.key_index = {combo_key(grid.keys, c): i for i, c in enumerate(self.combos)}
+        return ctx
+
+    def execute(self) -> dict:
+        t0 = time.time()
+        grid = self.grid
+        self.ctx = None
+        self.combos = []
+        ctx = self.prepare_ctx()
+        cfg0 = ctx.cfg0
         t_eval = time.time()
         log.info("Lưới %d tham số, %s tổ hợp – %s", len(grid.keys), f"{grid.total:,}",
                  "quét toàn bộ" if grid.mode == "grid" else f"tìm kiếm thông minh ({grid.max_combos:,} tổ hợp)")
@@ -540,7 +558,11 @@ class BtRun:
             cfg = dataclasses.replace(cfg, sessions=_sessions_for(hsel, cfg.sessions))
         book, rejected = ev.run(cfg, *ctx.inner(combo), full=True)
         closed = sorted(book.closed, key=lambda r: r["entry_t"])
-        row = next((r for r in self.rows if r["ci"] == ci), None)
+        row = None
+        if key:
+            row = next((r for r in self.rows if r.get("key") == key), None)
+        if row is None:
+            row = next((r for r in self.rows if r.get("ci") == ci), None)
         self._last_ci = ci
         trades = []
         for n, r in enumerate(closed, 1):

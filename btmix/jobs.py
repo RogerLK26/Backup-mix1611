@@ -139,9 +139,13 @@ class BtJob:
     def detail(self, mode: str, ci: int, tz: str | None = None, hours=None, key: str | None = None) -> dict:
         r = self.runs.get(mode)
         if r is None:
-            raise KeyError(mode)
-        if r.ctx is None:          # đã giải phóng RAM -> tính lại phần tính trước của sàn đó
-            r.execute()
+            if mode not in self.exchanges:
+                raise KeyError(mode)
+            r = BtRun(self.raw, mode, progress=self.progress)
+            r.rows = [x for x in (self.rows or []) if x.get("mode") == mode]
+            self.runs[mode] = r
+        if r.ctx is None:          # chưa có / đã giải phóng RAM: chỉ chuẩn bị dữ liệu, không chạy lại cả lưới
+            r.prepare_ctx()
         return r.detail(ci, tz, hours, key)
 
     # ---- lịch sử
@@ -248,14 +252,21 @@ def payload(job) -> dict:
 
 
 def rebuild(run_id: str):
-    """Dựng lại một lượt trong lịch sử để xem chi tiết từng lệnh (replay: vài giây nhờ cache đường giá;
-    backtest: quét lại tín hiệu, cache dữ liệu sàn nên nhanh hơn lần đầu)."""
+    """Dựng lại một lượt trong lịch sử để xem chi tiết từng lệnh.
+
+    Bảng xếp hạng lấy thẳng từ kết quả đã lưu, nên chế độ backtest KHÔNG chạy lại cả lưới: chỉ tải dữ liệu +
+    quét tín hiệu + tính trước điểm thoát cho sàn nào thật sự cần xem (làm ngay trong lần bấm chi tiết đầu tiên).
+    Replay thì chạy lại cả lượt vì đường giá đã có cache nên chỉ vài giây.
+    """
     a = history.load_args(run_id)
     req = history.load_request(run_id)
     if a.get("kind") == "bt":
         job = BtJob({"config": a["config"], "exchanges": a["exchanges"]})
-    else:
-        job = ReplayJob(req, file=history.source_file(run_id, a["file"]))
+        res = history.load_result(run_id)
+        job.rows = res.get("rows") or []
+        job.summary = res.get("summary") or {}
+        return job
+    job = ReplayJob(req, file=history.source_file(run_id, a["file"]))
     job.execute()
     return job
 

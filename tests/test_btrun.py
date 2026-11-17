@@ -205,3 +205,26 @@ def test_detail_follows_key_not_row_number(prepared):
     assert d["stats"]["skipped"] == same["skipped"]
     with pytest.raises(KeyError):                       # khoá không có thật -> báo lỗi, không trả nhầm dòng khác
         b.detail(0, key="exit.take_profit=99")
+
+
+def test_detail_without_rerunning_grid(prepared, monkeypatch):
+    """Xem chi tiết một lượt cũ: chỉ chuẩn bị dữ liệu, KHÔNG chạy lại cả lưới.
+
+    Lượt 56.000 cấu hình trước đây phải quét lại toàn bộ (cả chục phút) chỉ để mở một dòng.
+    """
+    raw = dict(RAW, sweep={"exit.take_profit": "1, 2", "exit.stop_loss": "2, 5", "exit.max_hold": "15m, 1h"})
+    full = BtRun(raw, "binance", prepared=prepared)
+    full.execute()
+    row = max(full.rows, key=lambda r: r["n"])
+
+    light = BtRun(raw, "binance", prepared=prepared)
+    light.rows = full.rows                                   # bảng xếp hạng lấy từ kết quả đã lưu
+    calls = {"n": 0}
+    orig = BtRun._row
+    monkeypatch.setattr(BtRun, "_row", lambda self, *a, **k: (calls.__setitem__("n", calls["n"] + 1), orig(self, *a, **k))[1])
+    light.prepare_ctx()
+    d = light.detail(0, key=row["key"])                      # ci cố tình sai, bám theo khoá
+    assert calls["n"] <= 1                                   # chỉ chạy đúng cấu hình cần xem
+    assert d["combo"]["params"] == row["params"]
+    assert d["stats"]["n"] == row["n"]
+    assert d["stats"]["net"] == pytest.approx(row["net"], abs=1e-9)

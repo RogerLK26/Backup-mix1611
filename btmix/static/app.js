@@ -922,10 +922,18 @@ async function openDetail(mode, ci, switchTab = true) {
   if (switchTab) showTab("detail");
   renderHourChips();
   $("dKpis").innerHTML = `<span class="muted">Đang tải chi tiết…</span>`;
+  // lượt cũ mở lại từ lịch sử: máy chủ phải tải dữ liệu & quét lại tín hiệu trước -> nói rõ để khỏi tưởng treo
+  const slow = setTimeout(() => {
+    if (DCUR && DCUR.mode === mode && DCUR.ci === ci) {
+      $("dKpis").innerHTML = `<span class="muted">Đang dựng lại lượt chạy này (tải dữ liệu sàn & quét tín hiệu).
+        Lần đầu với lượt cũ có thể mất vài phút; các cấu hình sau đó hiện ngay.</span>`;
+    }
+  }, 4000);
   const q = hoursQ() + dateQ();
   let d;
   try { d = await api(`/api/detail?mode=${mode}&ci=${ci}${keyQ()}${q}${runQ()}`); }
-  catch (e) { $("dKpis").innerHTML = `<span class="neg">${esc(e.message)}</span>`; return; }
+  catch (e) { clearTimeout(slow); $("dKpis").innerHTML = `<span class="neg">${esc(e.message)}</span>`; return; }
+  clearTimeout(slow);
   if (!DCUR || DCUR.mode !== mode || DCUR.ci !== ci || q !== hoursQ() + dateQ()) return;   // đã đổi cấu hình / giờ trong lúc tải
   DETAIL = d;
   renderDetail();
