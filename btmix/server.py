@@ -363,14 +363,14 @@ def _hours(hours: str | None):
 
 
 @app.get("/api/detail")
-def detail(mode: str, ci: int, run: str | None = None, hours: str | None = None):
+def detail(mode: str, ci: int, run: str | None = None, hours: str | None = None, key: str | None = None):
     job = _job(run)
     try:
-        return _clean(job.detail(mode, int(ci), None, _hours(hours)))
+        return _clean(job.detail(mode, int(ci), None, _hours(hours), key or None))
     except KeyError:
-        raise HTTPException(404, "Không có cấu hình này trong lượt chạy") from None
+        raise HTTPException(404, "Không tìm thấy cấu hình này trong lượt chạy") from None
     except IndexError:
-        raise HTTPException(404, "Không có cấu hình này trong lượt chạy") from None
+        raise HTTPException(404, "Không tìm thấy cấu hình này trong lượt chạy") from None
 
 
 @app.get("/api/rows")
@@ -428,9 +428,9 @@ def export_grid(run: str | None = None):
 
 
 @app.get("/api/export/trades.csv")
-def export_trades(mode: str, ci: int, run: str | None = None, hours: str | None = None):
+def export_trades(mode: str, ci: int, run: str | None = None, hours: str | None = None, key: str | None = None):
     job = _job(run)
-    d = job.detail(mode, int(ci), None, _hours(hours))
+    d = job.detail(mode, int(ci), None, _hours(hours), key or None)
     c = d["combo"]
     name = f"lenh_{mode}_tp{c.get('tp')}_sl{c.get('sl')}_giu{c.get('hold')}.csv".replace(" ", "")
     return _csv(d["trades"], name)

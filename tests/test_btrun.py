@@ -178,3 +178,30 @@ def test_rows_keep_grid_order(prepared):
     r.execute()
     assert [row["tp"] for row in r.rows] == [2.0, 2.0, 1.0, 1.0]
     assert [row["values"]["signals.0.timeframe"] for row in r.rows] == ["5m", "1m", "5m", "1m"]
+
+
+def test_detail_follows_key_not_row_number(prepared):
+    """Trang Chi tiết phải bám theo GIÁ TRỊ cấu hình, không theo số thứ tự dòng.
+
+    Lỗi thật đã gặp: xem lại một lượt cũ trong lịch sử, tool dựng lại lượt chạy với thứ tự dòng khác (đổi cách
+    sắp xếp giữa 2 phiên bản) -> bảng xếp hạng nói TP 5% / SL 2.5% lãi +24.193 nhưng trang chi tiết lại hiện
+    số của một cấu hình khác hẳn.
+    """
+    raw = dict(RAW, sweep={"exit.take_profit": "1, 2", "exit.stop_loss": "2, 5", "exit.max_hold": "1h"})
+    a = BtRun(raw, "binance", prepared=prepared)
+    a.execute()
+    # "lượt chạy cũ": cùng lưới nhưng người dùng nhập theo thứ tự khác -> ci của cùng một cấu hình lệch đi
+    b = BtRun(dict(raw, sweep={"exit.take_profit": "2, 1", "exit.stop_loss": "5, 2", "exit.max_hold": "1h"}),
+              "binance", prepared=prepared)
+    b.execute()
+    old = next(r for r in a.rows if r["tp"] == 1.0 and r["sl"] == 2.0)
+    same = next(r for r in b.rows if r["tp"] == 1.0 and r["sl"] == 2.0)
+    assert old["ci"] != same["ci"]                      # số thứ tự đã lệch…
+    assert old["key"] == same["key"]                    # …nhưng khoá thì không
+    d = b.detail(old["ci"], key=old["key"])             # mở bằng ci cũ + khoá -> vẫn đúng cấu hình
+    assert d["combo"]["tp"] == 1.0 and d["combo"]["sl"] == 2.0
+    assert d["stats"]["n"] == same["n"]
+    assert d["stats"]["net"] == pytest.approx(same["net"], abs=1e-9)
+    assert d["stats"]["skipped"] == same["skipped"]
+    with pytest.raises(KeyError):                       # khoá không có thật -> báo lỗi, không trả nhầm dòng khác
+        b.detail(0, key="exit.take_profit=99")

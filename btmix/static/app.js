@@ -825,20 +825,35 @@ const TSORT = { byHour: { k: "hour", d: 1 }, byCoin: { k: "sim", d: -1 }, trades
 const hh = (h) => String(h).padStart(2, "0");
 const hoursQ = () => (HOURS.size === 24 ? "" : `&hours=${HOURS.size ? [...HOURS].sort((a, b) => a - b).join(",") : "none"}`);
 
+// Khoá định danh cấu hình theo GIÁ TRỊ (xem combo_key trong btmix/strategy.py): số thứ tự dòng không đáng tin
+// khi tool dựng lại một lượt cũ trong lịch sử, dễ khiến trang Chi tiết hiện nhầm cấu hình khác.
+const keyVal = (v) => {
+  if (v === null || v === undefined || v === "") return "";
+  const n = Number(v);
+  return String(v).trim() !== "" && Number.isFinite(n) ? String(n) : String(v).trim();
+};
+const comboKeyOf = (r) => {
+  if (!r) return "";
+  if (r.key) return r.key;
+  if (isBt()) return (RES.summary.keys || []).map((k) => `${k}=${keyVal((r.values || {})[k])}`).join("|");
+  return `tp=${keyVal(r.tp)}|sl=${keyVal(r.sl)}|hold=${keyVal(r.hold)}`;
+};
+const keyQ = () => (DCUR && DCUR.key ? `&key=${encodeURIComponent(DCUR.key)}` : "");
+
 async function openDetail(mode, ci, switchTab = true) {
   const c = RES.combos[ci] || [null, null, 0];
-  DCUR = { mode, ci };
-  $("dMode").value = mode; $("dTp").value = c[0]; $("dSl").value = c[1]; $("dHold").value = c[2];
   const row = RES.rows.find((r) => r.mode === mode && r.ci === ci);
+  DCUR = { mode, ci, key: comboKeyOf(row) };
+  $("dMode").value = mode; $("dTp").value = c[0]; $("dSl").value = c[1]; $("dHold").value = c[2];
   $("dParams").textContent = row ? rowCfgTxt(row) : "";
   if (row && EXTRA_KEYS.length) $("hExtra").value = extraKey(row);
-  $("dCsv").href = `/api/export/trades.csv?mode=${mode}&ci=${ci}${hoursQ()}${dateQ()}${runQ()}`;
+  $("dCsv").href = `/api/export/trades.csv?mode=${mode}&ci=${ci}${keyQ()}${hoursQ()}${dateQ()}${runQ()}`;
   if (switchTab) showTab("detail");
   renderHourChips();
   $("dKpis").innerHTML = `<span class="muted">Đang tải chi tiết…</span>`;
   const q = hoursQ() + dateQ();
   let d;
-  try { d = await api(`/api/detail?mode=${mode}&ci=${ci}${q}${runQ()}`); }
+  try { d = await api(`/api/detail?mode=${mode}&ci=${ci}${keyQ()}${q}${runQ()}`); }
   catch (e) { $("dKpis").innerHTML = `<span class="neg">${esc(e.message)}</span>`; return; }
   if (!DCUR || DCUR.mode !== mode || DCUR.ci !== ci || q !== hoursQ() + dateQ()) return;   // đã đổi cấu hình / giờ trong lúc tải
   DETAIL = d;

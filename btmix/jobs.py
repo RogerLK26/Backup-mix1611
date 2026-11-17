@@ -136,13 +136,13 @@ class BtJob:
         }
         return self.summary
 
-    def detail(self, mode: str, ci: int, tz: str | None = None, hours=None) -> dict:
+    def detail(self, mode: str, ci: int, tz: str | None = None, hours=None, key: str | None = None) -> dict:
         r = self.runs.get(mode)
         if r is None:
             raise KeyError(mode)
         if r.ctx is None:          # đã giải phóng RAM -> tính lại phần tính trước của sàn đó
             r.execute()
-        return r.detail(ci, tz, hours)
+        return r.detail(ci, tz, hours, key)
 
     # ---- lịch sử
     def hist_meta(self) -> dict:
@@ -195,14 +195,26 @@ class ReplayJob:
         self.grid_info = {"combos": n, "mode": "grid", "evaluate": n, "keys": ["tp", "sl", "hold"]}
 
     def execute(self) -> dict:
+        from .strategy import combo_key
         s = self.run.execute()
         self.rows = self.run.rows
+        # cùng cách định danh như chế độ backtest: theo giá trị, không theo số thứ tự dòng
+        self.key_index = {}
+        for i, (tp, sl, hold) in enumerate(self.run.replay.combos):
+            self.key_index[combo_key(("tp", "sl", "hold"), (tp, sl, hold))] = i
+        for r in self.rows:
+            r["key"] = combo_key(("tp", "sl", "hold"), (r["tp"], r["sl"], r["hold"]))
         self.validation = self.run.validation
         self.summary = {**s, "kind": "replay", "title": self.file.name, "modes": self.run.st.modes,
                         "tz": self.run.tz, "keys": [], "labels": []}
         return self.summary
 
-    def detail(self, mode: str, ci: int, tz: str | None = None, hours=None) -> dict:
+    def detail(self, mode: str, ci: int, tz: str | None = None, hours=None, key: str | None = None) -> dict:
+        if key:                                    # khoá theo giá trị TP/SL/giữ lệnh (xem combo_key)
+            ci2 = self.key_index.get(key)
+            if ci2 is None:
+                raise KeyError(key)
+            ci = ci2
         return self.run.replay.detail(mode, ci, tz or self.run.tz, hours)
 
     def hist_meta(self) -> dict:

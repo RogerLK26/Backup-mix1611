@@ -63,6 +63,28 @@ REJECT_LABELS = {
 }
 TOP_HOURS_K = 8
 
+
+def _key_val(v) -> str:
+    """Chuẩn hoá một giá trị tham số để ghép thành khoá (5.0 -> '5', '30m' -> '30m', None -> '')."""
+    if v is None or v == "":
+        return ""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return str(v).strip()
+    return str(int(f)) if f.is_integer() else repr(f)
+
+
+def combo_key(keys, combo) -> str:
+    """Định danh một cấu hình theo GIÁ TRỊ các tham số, không theo vị trí trong lưới.
+
+    Số thứ tự dòng (ci) chỉ đúng trong cùng một lần dựng kết quả: xem lại một lượt cũ trong lịch sử (tool dựng lại
+    lượt chạy) hay đổi thứ tự sắp xếp là ci lệch đi, kéo theo trang Chi tiết hiện nhầm cấu hình khác. Khoá này
+    thì luôn trỏ đúng một cấu hình.
+    """
+    return "|".join(f"{k}={_key_val(v)}" for k, v in zip(keys, combo))
+
+
 # nhãn tiếng Việt cho các tham số quét thêm (bản gốc chỉ đặt tên sẵn cho một số khoá)
 SIG_LABELS = {"timeframe": "Khung nến", "change_pct": "Biến động", "max_change_pct": "Biến động tối đa",
               "direction": "Chiều biến động", "side": "Vào lệnh", "trigger": "Kích hoạt",
@@ -348,10 +370,12 @@ class BtRun:
         pos = [{v: i for i, v in enumerate(vals)} for vals in grid.values]
         combos = sorted(res.keys(), key=lambda c: tuple(pos[i].get(v, 0) for i, v in enumerate(c)))
         self.combos = combos
+        self.key_index = {combo_key(grid.keys, c): i for i, c in enumerate(combos)}
         rows = []
         for ci, c in enumerate(combos):
             r = res[c]
             r["ci"] = ci
+            r["key"] = combo_key(grid.keys, c)
             r["mode"] = self.exchange
             rows.append(r)
         self._neighbors(rows)
@@ -496,12 +520,16 @@ class BtRun:
                 r[pre + "nb_min"] = float(np.min(v)) if v else None
 
     # ------------------------------------------------------------------ chi tiết 1 cấu hình
-    def detail(self, ci: int, tz: str | None = None, hours: list[int] | None = None) -> dict:
+    def detail(self, ci: int, tz: str | None = None, hours: list[int] | None = None, key: str | None = None) -> dict:
         """Chi tiết 1 cấu hình: từng lệnh, đường vốn, theo ngày / giờ vào lệnh / coin.
         `hours` – chỉ cho vào lệnh trong các giờ đó: chạy lại sổ lệnh với khung giờ này (đúng như bot chỉ chạy giờ đó)."""
         if self.ctx is None:
             raise RuntimeError("Lượt chạy chưa sẵn sàng (máy chủ đã khởi động lại) – hãy chạy lại")
         tz = tz or self.tz
+        if key:                      # luôn ưu tiên khoá theo giá trị (ci có thể lệch, xem combo_key)
+            if key not in self.key_index:
+                raise KeyError(key)
+            ci = self.key_index[key]
         combo = self.combos[ci]
         ctx = self.ctx
         outer = ctx.outer(combo)
@@ -513,6 +541,7 @@ class BtRun:
         book, rejected = ev.run(cfg, *ctx.inner(combo), full=True)
         closed = sorted(book.closed, key=lambda r: r["entry_t"])
         row = next((r for r in self.rows if r["ci"] == ci), None)
+        self._last_ci = ci
         trades = []
         for n, r in enumerate(closed, 1):
             trades.append({
@@ -529,11 +558,14 @@ class BtRun:
         o = np.argsort(a["exit_t"], kind="stable") if len(closed) else np.array([], int)
         equity = [[int(t), float(v)] for t, v in zip(a["exit_t"][o], np.cumsum(a["pnl"][o]))] if len(closed) else []
         by_day, by_hour, by_coin = _groups(closed, a, o, tz)
+        stats = _stats(closed, cfg.initial_balance, subset=len(hsel) < 24)
+        stats["skipped"] = int(sum(v for k, v in Counter(rejected).items() if k not in STATIC_REJECTS))
         return {
-            "combo": {"mode": self.exchange, "ci": ci, "tp": row and row["tp"], "sl": row and row["sl"],
+            "combo": {"mode": self.exchange, "ci": ci, "key": row and row.get("key"),
+                      "tp": row and row["tp"], "sl": row and row["sl"],
                       "hold": row and row["hold"], "params": row and row["params"]},
             "hours": hsel,
-            "stats": _stats(closed, cfg.initial_balance, subset=len(hsel) < 24),
+            "stats": stats,
             "trades": trades, "equity": equity, "by_day": by_day, "by_hour": by_hour, "by_coin": by_coin,
             "rejects": [{"reason": k, "label": REJECT_LABELS.get(k, k), "n": int(v)}
                         for k, v in Counter(rejected).most_common() if k not in STATIC_REJECTS],
