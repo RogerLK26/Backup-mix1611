@@ -695,6 +695,37 @@ function openFavPanel() {
   });
 }
 
+// Lưu / bỏ CẢ LOẠT cấu hình đang khớp bộ lọc vào một nhóm yêu thích.
+function openFavAll() {
+  if (!RES) return;
+  const { rows } = filteredRows();
+  const el = openPop($("favAddAll"), () => `<div class="pophead">Lưu <b>${fmt(rows.length, 0)}</b> cấu hình đang khớp bộ lọc
+      <div class="muted">Theo đúng bộ lọc hiện tại, không bị giới hạn bởi ô "Hiển thị".</div></div>
+    ${FGROUPS.map((g) => { const c = favCounts(g.name); return `<div class="popitem">
+      <span class="dot" style="background:${g.color}"></span><span class="gname">${esc(g.name)}</span>
+      <span class="muted">${c.here}/${c.total}</span>
+      <button class="btn small" data-add="${esc(g.name)}">Thêm</button>
+      <button class="btn small ghost danger" data-rem="${esc(g.name)}" title="Bỏ các cấu hình này khỏi nhóm">Bỏ</button></div>`; }).join("")
+      || `<div class="muted" style="padding:6px 2px">Chưa có nhóm nào – đặt tên nhóm mới ở dưới.</div>`}
+    <form class="popnew"><input name="g" placeholder="Nhóm mới…" maxlength="40"><button class="btn small">+ Lưu vào nhóm mới</button></form>`);
+  const send = async (group, on) => {
+    if (!rows.length) { alert("Không có cấu hình nào khớp bộ lọc."); return; }
+    if (rows.length > 2000) { alert(`Đang khớp ${rows.length} cấu hình – lọc bớt còn tối đa 2.000 rồi lưu.`); return; }
+    if (!confirm(`${on ? "Lưu" : "Bỏ"} ${rows.length} cấu hình ${on ? "vào" : "khỏi"} nhóm "${group}"?`)) return;
+    const items = rows.map((r) => ({ mode: r.mode, tp: r.tp, sl: r.sl, hold: r.hold, params: r.params || "" }));
+    const d = await postJ("/api/favorites/set-many", { items, group, on, kind: RES.kind }).catch((e) => { alert(e.message); });
+    if (!d) return;
+    setFavs(d);
+    renderTable(); favBtnTxt(); FAVPOP && FAVPOP.render();
+    toast(`${on ? "Đã lưu" : "Đã bỏ"} ${fmt(d.changed, 0)} cấu hình ${on ? "vào" : "khỏi"} nhóm "${group}"`);
+  };
+  el.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-add], [data-rem]"); if (!b) return;
+    send(b.dataset.add || b.dataset.rem, b.hasAttribute("data-add"));
+  });
+  el.addEventListener("submit", (e) => { e.preventDefault(); const n = e.target.g.value.trim(); if (n) send(n, true); });
+}
+
 function favCell(r) {
   const gs = favGroupsOf(r);
   const tip = gs.length ? `Nhóm: ${gs.join(", ")} – bấm để sửa nhóm` : "Lưu vào nhóm yêu thích";
@@ -745,12 +776,19 @@ function resetDates() {
   DROWS = null; DINFO = null; dateBanner();
 }
 
-function renderTable() {
-  const fm = $("fMode").value, fh = $("fHold").value, mn = +$("fMin").value || 0, top = +$("fTop").value, fav = FAVSEL.size > 0;
+// các dòng khớp mọi bộ lọc hiện tại (chưa cắt theo ô "Hiển thị") – dùng cho cả bảng lẫn nút lưu hàng loạt
+function filteredRows() {
+  const fm = $("fMode").value, fh = $("fHold").value, mn = +$("fMin").value || 0, fav = FAVSEL.size > 0;
   let rows = gridRows().filter((r) => (!fm || r.mode === fm) && (fh === "" || r.hold === +fh) && r.n >= mn);
   const total = rows.length;
   if (fav) rows = rows.filter((r) => favGroupsOf(r).some((g) => FAVSEL.has(g)));
   if (FCONDS.length) rows = rows.filter((r) => FCONDS.every((c) => fTest(c, r)));
+  return { rows, total, fav };
+}
+function renderTable() {
+  const top = +$("fTop").value;
+  const { total, fav } = filteredRows();
+  let rows = filteredRows().rows;
   $("fCount").textContent = FCONDS.length || fav ? `${rows.length.toLocaleString("vi-VN")} / ${total.toLocaleString("vi-VN")} cấu hình khớp lọc` : "";
   rows.sort((a, b) => { const x = sortVal(a, SORT.k), y = sortVal(b, SORT.k); return ((x > y) - (x < y)) * SORT.d; });
   const act = rows.filter((r) => r.isActual);
@@ -1078,6 +1116,7 @@ $("upload").addEventListener("change", async (e) => {
 });
 ["fMode", "fHold", "fMin", "fTop"].forEach((id) => $(id).addEventListener("input", renderTable));
 $("favFilterBtn").addEventListener("click", openFavPanel);
+$("favAddAll").addEventListener("click", openFavAll);
 ["fFrom", "fTo"].forEach((id) => $(id).addEventListener("change", datesChanged));
 $("fDateClear").addEventListener("click", () => { $("fFrom").value = ""; $("fTo").value = ""; applyDates(); });
 $("dateBanner").addEventListener("click", (e) => { if (e.target.id === "dateBannerClear") { e.preventDefault(); $("fDateClear").click(); } });

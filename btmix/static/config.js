@@ -108,7 +108,6 @@ const GROUPS = [
   },
   {
     id: "data", title: "Dữ liệu & thông tin chung", fields: [
-      { k: "name", label: "Tên chiến lược", type: "text", w: 2, d: "strategy" },
       { k: "timezone", label: "Múi giờ", type: "select", opts: ["Asia/Ho_Chi_Minh", "UTC"], d: "Asia/Ho_Chi_Minh" },
       { k: "initial_balance", label: "Vốn ban đầu (USDT)", type: "num", d: 1000 },
       { k: "data.resolution", label: "Độ phân giải", type: "select", d: "auto", opts: [] },
@@ -118,12 +117,13 @@ const GROUPS = [
   },
 ];
 // các ô của phần Cơ bản (đặt trong khung riêng, xem index.html)
+const NAME_FIELD = [{ k: "name", label: "Tên chiến lược", type: "text", d: "strategy" }];
 const BASIC = [
   { k: "position.margin", label: "Ký quỹ mỗi lệnh", type: "num", d: 10 },
   { k: "position.margin_mode", label: "Tính theo", type: "select", d: "fixed", opts: [] },
   { k: "position.leverage", label: "Đòn bẩy", type: "num", d: 10 },
 ];
-const ALL_FIELDS = () => BASIC.concat(...GROUPS.map((g) => g.fields));
+const ALL_FIELDS = () => NAME_FIELD.concat(BASIC, ...GROUPS.map((g) => g.fields));
 
 const enumOf = (field) => (META && META.enums && META.enums.signal[field]) ||
   ({ direction: ["up", "down", "both"], trigger: ["touch", "close"], side: ["long", "short", "follow", "reverse"] })[field];
@@ -437,16 +437,20 @@ async function savePreset(asNew) {
   const cfg = getConfig(), cur = $("preset").value;
   try {
     if (asNew || !cur) {
-      const name = prompt("Tên file cấu hình mới:", (cfg.name || "chien_luoc").replace(/\s+/g, "_"));
+      const name = (prompt("Tên chiến lược mới:", cfg.name || "Chiến lược mới") || "").trim();
       if (!name) return;
+      cfg.name = name;                       // đặt luôn tên chiến lược, khỏi phải vào Nâng cao sửa lại
       const r = await postJ("/api/presets", { file: name, config: cfg });
+      $(fid("name")).value = name;
+      CURRENT_RAW.name = name;
+      saveDraft();
       await loadPresets(r.file);
     } else {
       await api(`/api/presets/${encodeURIComponent(cur)}`, { method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cfg) });
       await loadPresets(cur);
     }
-    toast("Đã lưu cấu hình");
+    toast(`Đã lưu chiến lược "${cfg.name || ""}"`);
   } catch (e) { alert(e.message); }
 }
 async function deletePreset() {
@@ -501,6 +505,7 @@ async function initConfig() {
   const rank = GROUPS.find((g) => g.id === "rank");
   rank.fields[0].opts = Object.entries(META.objectives);
   rank.fields[1].opts = [["", "— không dùng —"]].concat(Object.entries(META.objectives));
+  $("nameSlot").innerHTML = NAME_FIELD.map(fieldHtml).join("");
   $("btBasic").innerHTML = BASIC.map(fieldHtml).join("");
   $("btAdvanced").innerHTML = GROUPS.map(groupHtml).join("");
   $("weekdays").innerHTML = WEEKDAYS.map(([v, t]) => `<label class="chk"><input type="checkbox" value="${v}" checked> ${t}</label>`).join("");

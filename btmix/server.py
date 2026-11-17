@@ -581,6 +581,43 @@ def favorites_set(body: dict = Body(...)):
         return _save_favs(d)
 
 
+@app.post("/api/favorites/set-many")
+def favorites_set_many(body: dict = Body(...)):
+    """{items: [{mode, tp, sl, hold, params}], group, on}: thêm / bỏ cả loạt cấu hình khỏi một nhóm."""
+    items = body.get("items") or []
+    if not isinstance(items, list):
+        raise HTTPException(400, "Danh sách cấu hình không hợp lệ")
+    if len(items) > 2000:
+        raise HTTPException(400, f"Quá nhiều cấu hình ({len(items)}) – lọc bớt rồi lưu, tối đa 2.000")
+    name = _group_name(body.get("group") or DEFAULT_GROUP)
+    on = bool(body.get("on", True))
+    with _LOCK:
+        d = _load_favs()
+        g = _new_group(d, name) if on else _find_group(d, name)
+        if g is None:
+            raise HTTPException(404, "Không tìm thấy nhóm")
+        index = {_fav_key(x): x for x in d["items"]}
+        n = 0
+        for it in items:
+            key = _fav_key(it)
+            item = index.get(key)
+            if on:
+                if item is None:
+                    item = {"mode": key[0], "tp": key[1], "sl": key[2], "hold": key[3], "params": key[4],
+                            "kind": body.get("kind"), "groups": [], "saved": int(time.time() * 1000)}
+                    d["items"].append(item)
+                    index[key] = item
+                if g["name"] not in item["groups"]:
+                    item["groups"].append(g["name"])
+                    n += 1
+            elif item is not None and g["name"] in item["groups"]:
+                item["groups"] = [x for x in item["groups"] if x != g["name"]]
+                n += 1
+        if not on:
+            d["items"] = [x for x in d["items"] if x["groups"]]
+        return {**_save_favs(d), "changed": n}
+
+
 @app.post("/api/favorites/groups")
 def favorites_groups(body: dict = Body(...)):
     action = body.get("action")
