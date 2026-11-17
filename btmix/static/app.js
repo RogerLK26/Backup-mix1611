@@ -136,10 +136,12 @@ async function run() {
   if (!polling) polling = setInterval(poll, 700);
   poll();
 }
-function toast(msg) {
+function toast(msg, undo) {
   const el = $("toast"); if (!el) return;
-  el.textContent = msg; el.hidden = false;
-  clearTimeout(toast._t); toast._t = setTimeout(() => (el.hidden = true), 4000);
+  el.innerHTML = esc(msg) + (undo ? ` <a href="#" class="undo">Hoàn tác</a>` : "");
+  el.hidden = false;
+  if (undo) el.querySelector(".undo").onclick = (e) => { e.preventDefault(); el.hidden = true; undo(); };
+  clearTimeout(toast._t); toast._t = setTimeout(() => (el.hidden = true), undo ? 9000 : 4000);
 }
 async function poll() {
   let s;
@@ -710,16 +712,22 @@ function openFavAll() {
       <button class="btn small ghost danger" data-rem="${esc(g.name)}" title="Bỏ các cấu hình này khỏi nhóm">Bỏ</button></div>`; }).join("")
       || `<div class="muted" style="padding:6px 2px">Chưa có nhóm nào – đặt tên nhóm mới ở dưới.</div>`}
     <form class="popnew"><input name="g" placeholder="Nhóm mới…" maxlength="40"><button class="btn small">+ Lưu vào nhóm mới</button></form>`);
-  const send = async (group, on) => {
-    if (!rows.length) { alert("Không có cấu hình nào khớp bộ lọc."); return; }
-    if (rows.length > 2000) { alert(`Đang khớp ${rows.length} cấu hình – lọc bớt còn tối đa 2.000 rồi lưu.`); return; }
-    if (!confirm(`${on ? "Lưu" : "Bỏ"} ${rows.length} cấu hình ${on ? "vào" : "khỏi"} nhóm "${group}"?`)) return;
+  const note = (txt, bad = true) => {
+    const h = el.querySelector(".pophead");
+    if (h) h.insertAdjacentHTML("beforeend", `<div class="${bad ? "neg" : "pos"}">${esc(txt)}</div>`);
+  };
+  const send = async (group, on, quiet = false) => {
+    if (!rows.length) { note("Không có cấu hình nào khớp bộ lọc."); return; }
+    if (rows.length > 2000) { note(`Đang khớp ${fmt(rows.length, 0)} cấu hình – lọc bớt còn tối đa 2.000 rồi lưu.`); return; }
     const items = rows.map((r) => ({ mode: r.mode, tp: r.tp, sl: r.sl, hold: r.hold, params: r.params || "" }));
-    const d = await postJ("/api/favorites/set-many", { items, group, on, kind: RES.kind }).catch((e) => { alert(e.message); });
-    if (!d) return;
+    let d;
+    try { d = await postJ("/api/favorites/set-many", { items, group, on, kind: RES.kind }); }
+    catch (e) { note(e.message); return; }
     setFavs(d);
     renderTable(); favBtnTxt(); FAVPOP && FAVPOP.render();
-    toast(`${on ? "Đã lưu" : "Đã bỏ"} ${fmt(d.changed, 0)} cấu hình ${on ? "vào" : "khỏi"} nhóm "${group}"`);
+    if (quiet) return;
+    toast(`${on ? "Đã lưu" : "Đã bỏ"} ${fmt(d.changed, 0)} cấu hình ${on ? "vào" : "khỏi"} nhóm "${group}"`,
+      d.changed ? () => send(group, !on, true) : null);
   };
   el.addEventListener("click", (e) => {
     const b = e.target.closest("[data-add], [data-rem]"); if (!b) return;

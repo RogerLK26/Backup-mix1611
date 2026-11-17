@@ -241,3 +241,5 @@ input.dt { width: 160px; margin: 0; }
 
 table.data td.xp, table.data th.xp { background: color-mix(in srgb, var(--accent2) 10%, transparent); }
 table.data td.favn, table.data th.favn { background: color-mix(in srgb, var(--neg) 7%, transparent); }
+.toast .undo { color: var(--accent); margin-left: 10px; font-weight: 600; }
+.favpop .pophead .neg, .favpop .pophead .pos { margin-top: 6px; font-weight: 600; }
