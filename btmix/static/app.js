@@ -573,9 +573,15 @@ async function deleteSaved() {
 
 // ---- cấu hình yêu thích theo NHÓM (lưu trên máy chủ; cấu hình = chế độ + TP + SL + giữ lệnh, dùng chung mọi lượt chạy)
 let FGROUPS = [], FAVMAP = new Map(), FAVSEL = new Set(), FAVPOP = null;
-const favKey = (r) => `${r.mode}|${+r.tp}|${+r.sl}|${+r.hold}|${r.params || ""}`;
-const favGroupsOf = (r) => FAVMAP.get(favKey(r)) || [];
-const favId = (r) => ({ mode: r.mode, tp: r.tp, sl: r.sl, hold: r.hold, params: r.params || "", kind: RES && RES.kind });
+// Khoá nhận dạng cấu hình yêu thích = sàn/chế độ + khoá theo GIÁ TRỊ tham số (xem comboKeyOf).
+// Trước đây khoá gồm cả dòng mô tả `params`; dòng này đổi theo phiên bản (vd "signals.0.timeframe 1m" ->
+// "Khung nến (tín hiệu 1) 1m") nên cấu hình đã lưu không còn khớp với bảng -> bấm tym xong vẫn thấy chưa lưu.
+const favKeyOld = (r) => `${r.mode}|${+r.tp}|${+r.sl}|${+r.hold}|${r.params || ""}`;
+const favKey = (r) => (r.key ? `${r.mode}|${r.key}` : favKeyOld(r));
+const favKeyOf = (r) => `${r.mode}|${comboKeyOf(r)}`;
+const favGroupsOf = (r) => FAVMAP.get(favKeyOf(r)) || FAVMAP.get(favKeyOld(r)) || [];
+const favId = (r) => ({ mode: r.mode, tp: r.tp, sl: r.sl, hold: r.hold, params: r.params || "",
+  key: comboKeyOf(r), kind: RES && RES.kind });
 const isFav = (r) => favGroupsOf(r).length > 0;
 const gColor = (name) => (FGROUPS.find((g) => g.name === name) || {}).color || "var(--neg)";
 const postJ = (url, body) => api(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -700,11 +706,11 @@ function openFavPanel() {
 }
 
 // Lưu / bỏ CẢ LOẠT cấu hình đang khớp bộ lọc vào một nhóm yêu thích.
-function openFavAll() {
+function openFavAll(onlySelected = false) {
   if (!RES) return;
-  const { rows } = filteredRows();
-  const el = openPop($("favAddAll"), () => `<div class="pophead">Lưu <b>${fmt(rows.length, 0)}</b> cấu hình đang khớp bộ lọc
-      <div class="muted">Theo đúng bộ lọc hiện tại, không bị giới hạn bởi ô "Hiển thị".</div></div>
+  const rows = onlySelected ? selectedGridRows() : filteredRows().rows;
+  const el = openPop($(onlySelected ? "favAddSel" : "favAddAll"), () => `<div class="pophead">Lưu <b>${fmt(rows.length, 0)}</b> cấu hình ${onlySelected ? "đã chọn" : "đang khớp bộ lọc"}
+      <div class="muted">${onlySelected ? "Các dòng đang tick ở cột đầu bảng." : `Theo đúng bộ lọc hiện tại, không bị giới hạn bởi ô "Hiển thị".`}</div></div>
     ${FGROUPS.map((g) => { const c = favCounts(g.name); return `<div class="popitem">
       <span class="dot" style="background:${g.color}"></span><span class="gname">${esc(g.name)}</span>
       <span class="muted">${c.here}/${c.total}</span>
@@ -719,7 +725,7 @@ function openFavAll() {
   const send = async (group, on, quiet = false) => {
     if (!rows.length) { note("Không có cấu hình nào khớp bộ lọc."); return; }
     if (rows.length > 2000) { note(`Đang khớp ${fmt(rows.length, 0)} cấu hình – lọc bớt còn tối đa 2.000 rồi lưu.`); return; }
-    const items = rows.map((r) => ({ mode: r.mode, tp: r.tp, sl: r.sl, hold: r.hold, params: r.params || "" }));
+    const items = rows.map(favId);
     let d;
     try { d = await postJ("/api/favorites/set-many", { items, group, on, kind: RES.kind }); }
     catch (e) { note(e.message); return; }
@@ -799,6 +805,17 @@ function filteredRows() {
   if (FCONDS.length) rows = rows.filter((r) => FCONDS.every((c) => fTest(c, r)));
   return { rows, total, fav };
 }
+// ---- chọn nhiều dòng để lưu yêu thích một lượt
+let SELROWS = new Set();
+const selKey = (r) => favKeyOf(r);
+function selInfo() {
+  const n = SELROWS.size;
+  $("selInfo").textContent = n ? `Đã chọn ${fmt(n, 0)}` : "";
+  $("favAddSel").hidden = !n;
+  $("selClear").hidden = !n;
+}
+const selectedGridRows = () => gridRows().filter((r) => SELROWS.has(selKey(r)));
+
 function renderTable() {
   const top = +$("fTop").value;
   const { total, fav } = filteredRows();
@@ -810,13 +827,15 @@ function renderTable() {
   for (const r of act) if (!rows.includes(r)) rows.push(r);
   const empty = fav && !rows.length ? `<tr><td class="l muted" colspan="${COLS.length + 2}">Lượt chạy này không có cấu hình nào trong nhóm đã chọn khớp bộ lọc. Bấm ♡ ở đầu dòng để lưu cấu hình vào nhóm.</td></tr>` : "";
   // ♥, #, Chế độ, TP, SL, Giữ: neo cố định bên trái khi kéo ngang (class stk + left tính ở pinGrid)
-  const pin = (i) => (i < PIN_COLS ? ` stk stk${i + 2}` : "");
-  $("grid").innerHTML = `<thead><tr><th class="l fav stk stk0" title="Cấu hình yêu thích">♥</th><th class="l stk stk1">#</th>${COLS.map(([k, t, c], i) => `<th class="${c}${pin(i)}" data-k="${k}">${t}${SORT.k === k ? (SORT.d < 0 ? " ▼" : " ▲") : ""}</th>`).join("")}</tr></thead>
-    <tbody>${empty}${rows.map((r, i) => `<tr class="click ${r.isActual ? "actual" : ""}" data-m="${r.mode}" data-ci="${r.ci}"><td class="l fav stk stk0">${favCell(r)}</td><td class="l stk stk1">${i + 1}</td>${COLS.map(([k, , c, f, t], j) => {
+  const pin = (i) => (i < PIN_COLS ? ` stk stk${i + 3}` : "");
+  const allSel = rows.length > 0 && rows.every((r) => SELROWS.has(selKey(r)));
+  $("grid").innerHTML = `<thead><tr><th class="l selcol stk stk0" title="Chọn nhiều cấu hình để lưu vào nhóm yêu thích một lượt"><input type="checkbox" id="selAll"${allSel ? " checked" : ""}></th><th class="l fav stk stk1" title="Cấu hình yêu thích">♥</th><th class="l stk stk2">#</th>${COLS.map(([k, t, c], i) => `<th class="${c}${pin(i)}" data-k="${k}">${t}${SORT.k === k ? (SORT.d < 0 ? " ▼" : " ▲") : ""}</th>`).join("")}</tr></thead>
+    <tbody>${empty}${rows.map((r, i) => `<tr class="click ${r.isActual ? "actual" : ""}" data-m="${r.mode}" data-ci="${r.ci}"><td class="l selcol stk stk0"><input type="checkbox" class="rsel"${SELROWS.has(selKey(r)) ? " checked" : ""}></td><td class="l fav stk stk1">${favCell(r)}</td><td class="l stk stk2">${i + 1}</td>${COLS.map(([k, , c, f, t], j) => {
       const h8 = c.includes("h8") && r.h8_hours ? `Chỉ vào lệnh lúc ${r.h8_hours.map(hh).join(", ")}h (${r.h8_n} lệnh) – bấm để mở chi tiết với 8 giờ này` : "";
       const tip = [t ? t(r) : "", h8].filter(Boolean).join("\n");
       return `<td class="${c}${pin(j)}"${tip ? ` title="${esc(tip)}"` : ""}>${f(r)}</td>`;
     }).join("")}</tr>`).join("")}</tbody>`;
+  selInfo();
   pinGrid();
 }
 let PIN_COLS = 4;                       // số cột đầu của COLS được neo (Chế độ, TP %, SL %, Giữ + tham số quét thêm)
@@ -1130,7 +1149,9 @@ $("upload").addEventListener("change", async (e) => {
 });
 ["fMode", "fHold", "fMin", "fTop"].forEach((id) => $(id).addEventListener("input", renderTable));
 $("favFilterBtn").addEventListener("click", openFavPanel);
-$("favAddAll").addEventListener("click", openFavAll);
+$("favAddAll").addEventListener("click", () => openFavAll(false));
+$("favAddSel").addEventListener("click", () => openFavAll(true));
+$("selClear").addEventListener("click", () => { SELROWS = new Set(); renderTable(); });
 ["fFrom", "fTo"].forEach((id) => $(id).addEventListener("change", datesChanged));
 $("fDateClear").addEventListener("click", () => { $("fFrom").value = ""; $("fTo").value = ""; applyDates(); });
 $("dateBanner").addEventListener("click", (e) => { if (e.target.id === "dateBannerClear") { e.preventDefault(); $("fDateClear").click(); } });
@@ -1149,7 +1170,19 @@ loadFavs();
 $("grid").addEventListener("click", (e) => {
   const th = e.target.closest("th[data-k]");
   if (th) { const k = th.dataset.k; SORT = { k, d: SORT.k === k ? -SORT.d : -1 }; renderTable(); return; }
+  if (e.target.id === "selAll") {                        // chọn / bỏ chọn toàn bộ dòng đang hiện
+    const rows = [...$("grid").querySelectorAll("tbody tr[data-ci]")]
+      .map((x) => gridRows().find((r) => r.mode === x.dataset.m && r.ci === +x.dataset.ci)).filter(Boolean);
+    rows.forEach((r) => (e.target.checked ? SELROWS.add(selKey(r)) : SELROWS.delete(selKey(r))));
+    renderTable();
+    return;
+  }
   const tr = e.target.closest("tr[data-ci]"); if (!tr) return;
+  if (e.target.classList.contains("rsel")) {             // tick chọn dòng, không mở chi tiết
+    const r = gridRows().find((x) => x.mode === tr.dataset.m && x.ci === +tr.dataset.ci);
+    if (r) { if (e.target.checked) SELROWS.add(selKey(r)); else SELROWS.delete(selKey(r)); selInfo(); }
+    return;
+  }
   if (e.target.closest(".favbtn")) {                          // ♡ / ♥: lưu / bỏ yêu thích, không mở chi tiết
     const r = gridRows().find((x) => x.mode === tr.dataset.m && x.ci === +tr.dataset.ci);
     if (r) openFavMenu(r, e.target.closest(".favbtn"));

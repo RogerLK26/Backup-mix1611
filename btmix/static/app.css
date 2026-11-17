@@ -243,3 +243,6 @@ table.data td.xp, table.data th.xp { background: color-mix(in srgb, var(--accent
 table.data td.favn, table.data th.favn { background: color-mix(in srgb, var(--neg) 7%, transparent); }
 .toast .undo { color: var(--accent); margin-left: 10px; font-weight: 600; }
 .favpop .pophead .neg, .favpop .pophead .pos { margin-top: 6px; font-weight: 600; }
+
+table.data th.selcol, table.data td.selcol { width: 28px; padding-left: 8px; padding-right: 0; }
+table.data td.selcol input, table.data th.selcol input { margin: 0; cursor: pointer; }

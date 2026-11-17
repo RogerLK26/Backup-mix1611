@@ -249,6 +249,9 @@
         <label class="replay-only" title="Chỉ tính các lệnh VÀO trong khoảng ngày này (giờ VN, tính cả 2 đầu) – như thể bot chỉ chạy trong khoảng đó. Áp dụng cho bảng xếp hạng, heatmap và chi tiết cấu hình.">Ngày vào
           <input type="date" id="fFrom" style="width:auto"> – <input type="date" id="fTo" style="width:auto"></label>
         <button class="btn small ghost replay-only" id="fDateClear" hidden title="Bỏ lọc ngày (tính toàn bộ giai đoạn)">✕ Ngày</button>
+        <span id="selInfo" class="muted"></span>
+        <button class="btn small ghost favfilter" id="favAddSel" hidden title="Lưu các dòng đang tick vào một nhóm yêu thích">♡ Lưu dòng đã chọn…</button>
+        <button class="btn small ghost" id="selClear" hidden title="Bỏ tick tất cả">✕ Bỏ chọn</button>
         <button class="btn small ghost favfilter" id="favAddAll" title="Lưu tất cả cấu hình đang khớp bộ lọc vào một nhóm yêu thích">♡ Lưu tất cả…</button>
         <button class="btn small ghost favfilter" id="favFilterBtn" title="Chọn 1 hoặc nhiều nhóm yêu thích để xem; quản lý nhóm (tạo, đổi tên, xoá)">♥ Nhóm yêu thích ▾</button>
         <label>Hiển thị <select id="fTop"><option>50</option><option>200</option><option value="100000">Tất cả</option></select></label>

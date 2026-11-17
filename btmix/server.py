@@ -499,8 +499,14 @@ _LOCK = threading.Lock()
 
 
 def _fav_key(d: dict) -> tuple:
-    """Cấu hình yêu thích = (chế độ/sàn, TP, SL, giữ lệnh, tham số khác) – không gắn với một lượt chạy."""
+    """Cấu hình yêu thích = (chế độ/sàn, khoá theo giá trị tham số) – không gắn với một lượt chạy.
+
+    Bản cũ dùng cả dòng mô tả `params`; dòng mô tả đổi theo phiên bản nên cấu hình đã lưu không còn khớp.
+    Mục đã lưu từ bản cũ (chưa có `key`) vẫn tra được theo cách cũ."""
     try:
+        key = str(d.get("key") or "")
+        if key:
+            return (str(d["mode"]), key)
         return (str(d["mode"]), round(float(d["tp"] or 0), 6), round(float(d["sl"] or 0), 6), int(d["hold"] or 0),
                 str(d.get("params") or ""))
     except (KeyError, TypeError, ValueError):
@@ -569,8 +575,10 @@ def favorites_set(body: dict = Body(...)):
         item = next((x for x in d["items"] if _fav_key(x) == key), None)
         if on:
             if item is None:
-                item = {"mode": key[0], "tp": key[1], "sl": key[2], "hold": key[3], "params": key[4],
-                        "kind": body.get("kind"), "groups": [], "saved": int(time.time() * 1000)}
+                item = {"mode": str(body.get("mode")), "tp": body.get("tp"), "sl": body.get("sl"),
+                        "hold": body.get("hold"), "params": str(body.get("params") or ""),
+                        "key": str(body.get("key") or ""), "kind": body.get("kind"), "groups": [],
+                        "saved": int(time.time() * 1000)}
                 d["items"].append(item)
             if g["name"] not in item["groups"]:
                 item["groups"].append(g["name"])
@@ -603,8 +611,10 @@ def favorites_set_many(body: dict = Body(...)):
             item = index.get(key)
             if on:
                 if item is None:
-                    item = {"mode": key[0], "tp": key[1], "sl": key[2], "hold": key[3], "params": key[4],
-                            "kind": body.get("kind"), "groups": [], "saved": int(time.time() * 1000)}
+                    item = {"mode": str(it.get("mode")), "tp": it.get("tp"), "sl": it.get("sl"),
+                            "hold": it.get("hold"), "params": str(it.get("params") or ""),
+                            "key": str(it.get("key") or ""), "kind": body.get("kind"), "groups": [],
+                            "saved": int(time.time() * 1000)}
                     d["items"].append(item)
                     index[key] = item
                 if g["name"] not in item["groups"]:
