@@ -240,3 +240,4 @@ input.dt { width: 160px; margin: 0; }
 #hExtra { max-width: 320px; text-overflow: ellipsis; }
 
 table.data td.xp, table.data th.xp { background: color-mix(in srgb, var(--accent2) 10%, transparent); }
+table.data td.favn, table.data th.favn { background: color-mix(in srgb, var(--neg) 7%, transparent); }

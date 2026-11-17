@@ -390,6 +390,8 @@ const paramTxt = (v) => (v === null || v === undefined || v === "" ? "–" : typ
 const BASE_COLS = [
   ["mode", "Chế độ", "l", (r) => modeTxt(r.mode) + (r.isActual ? " ★" : "")], ["tp", "TP %", "", (r) => fmt(r.tp)],
   ["sl", "SL %", "", (r) => (r.sl ? fmt(r.sl, 1) : "–")], ["hold", "Giữ", "", (r) => holdTxt(r.hold)],
+  ["nfav", "♥ Nhóm", "favn", (r) => (r.nfav ? `<b>${r.nfav}</b>` : "–"),
+    (r) => (favGroupsOf(r).join(", ") || "Chưa lưu vào nhóm yêu thích nào")],
   ["n", "Lệnh", "", (r) => fmt(r.n, 0)], ["skipped", "Bỏ", "", (r) => fmt(r.skipped, 0)],
   ["n_tp", "TP", "", (r) => r.n_tp], ["n_sl", "SL", "", (r) => r.n_sl + (r.n_liq || 0)], ["n_timeout", "Hết giờ", "", (r) => r.n_timeout],
   ["win_rate", "Win %", "", (r) => fmt(r.win_rate, 1)], ["net", "Net USDT", "", (r) => sgn(r.net)], ["avg", "TB/lệnh", "", (r) => sgn(r.avg, 3)],
@@ -777,7 +779,11 @@ function resetDates() {
 }
 
 // các dòng khớp mọi bộ lọc hiện tại (chưa cắt theo ô "Hiển thị") – dùng cho cả bảng lẫn nút lưu hàng loạt
+function tagFavCount(rows) {
+  for (const r of rows) r.nfav = favGroupsOf(r).length;
+}
 function filteredRows() {
+  tagFavCount(gridRows());
   const fm = $("fMode").value, fh = $("fHold").value, mn = +$("fMin").value || 0, fav = FAVSEL.size > 0;
   let rows = gridRows().filter((r) => (!fm || r.mode === fm) && (fh === "" || r.hold === +fh) && r.n >= mn);
   const total = rows.length;
